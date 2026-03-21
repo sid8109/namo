@@ -2,13 +2,12 @@
 
 import { use } from "react"
 import { StockProvider } from "@/contexts/stock-context"
-import { STORE_NAMES } from "@/lib/constants"
 import { StoreHeader } from "@/components/store-header"
 import { BottomNavigation } from "@/components/bottom-navigation"
 
 export default function StoreLayout({ children, params }) {
 	const unwrappedParams = use(params)
-	const storeName = STORE_NAMES[unwrappedParams.store] || unwrappedParams.store
+	const storeName = unwrappedParams.store
 
 	return (
 		<StockProvider storeName={storeName}>

@@ -13,8 +13,7 @@ import { useRouter, useParams } from "next/navigation"
 import { StockCard } from "@/components/stock-card"
 import { AddMedicineDrawer } from "@/components/add-medicine-drawer"
 import { useStock } from "@/contexts/stock-context"
-import { MOCK_STOCK } from "@/lib/constants"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 
 export default function InventoryPage() {
 	const router = useRouter()
@@ -23,23 +22,47 @@ export default function InventoryPage() {
 	const [searchCriteria, setSearchCriteria] = useState("name")
 	const [inventory, setInventory] = useState([])
 	const [loading, setLoading] = useState(true)
+	const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
+	const debounceTimer = useRef(null)
+
+	// Debounce search term
+	useEffect(() => {
+		if (debounceTimer.current) {
+			clearTimeout(debounceTimer.current)
+		}
+
+		debounceTimer.current = setTimeout(() => {
+			setDebouncedSearchTerm(searchTerm)
+		}, 500) // Wait 500ms after user stops typing
+
+		return () => {
+			if (debounceTimer.current) {
+				clearTimeout(debounceTimer.current)
+			}
+		}
+	}, [searchTerm])
 
 	useEffect(() => {
 		const fetchInventory = async () => {
 			try {
 				setLoading(true)
-				const response = await fetch(`/api/inventory?storeId=${params.storeId}`)
+				const queryParams = new URLSearchParams({
+					storeId: params.storeId,
+					searchCriteria: searchCriteria,
+					searchTerm: debouncedSearchTerm,
+				})
+				const response = await fetch(`/api/inventory?${queryParams.toString()}`)
 				const result = await response.json()
 
 				if (result.success) {
 					setInventory(result.data)
 				} else {
 					console.error("Failed to fetch inventory:", result.error)
-					setInventory(MOCK_STOCK) // Fallback to mock data
+					setInventory([])
 				}
 			} catch (error) {
 				console.error("Error fetching inventory:", error)
-				setInventory(MOCK_STOCK) // Fallback to mock data
+				setInventory([])
 			} finally {
 				setLoading(false)
 			}
@@ -48,7 +71,7 @@ export default function InventoryPage() {
 		if (params.storeId) {
 			fetchInventory()
 		}
-	}, [params.storeId])
+	}, [params.storeId, searchCriteria, debouncedSearchTerm])
 
 	const getSearchLabel = () => {
 		if (searchCriteria === "barcode") return "Barcode"
@@ -58,23 +81,6 @@ export default function InventoryPage() {
 		if (searchCriteria === "manufacturer") return "Manufacturer"
 		return "Product Name"
 	}
-
-	const filteredStock = inventory.filter((item) => {
-		const search = searchTerm.toLowerCase()
-		if (searchCriteria === "barcode") {
-			return item.barcode?.toLowerCase().includes(search)
-		} else if (searchCriteria === "name") {
-			return item.name.toLowerCase().includes(search)
-		} else if (searchCriteria === "generic") {
-			return item.generic?.toLowerCase().includes(search)
-		} else if (searchCriteria === "location") {
-			return item.location?.toLowerCase().includes(search)
-		} else if (searchCriteria === "manufacturer") {
-			return item.manufacturer?.toLowerCase().includes(search)
-		} else {
-			return item.name.toLowerCase().includes(search)
-		}
-	})
 
 	return (
 		<>
@@ -134,10 +140,10 @@ export default function InventoryPage() {
 			<div className="px-4 space-y-3">
 				{loading ? (
 					<div className="text-center py-8 text-muted-foreground">Loading inventory...</div>
-				) : filteredStock.length === 0 ? (
+				) : inventory.length === 0 ? (
 					<div className="text-center py-8 text-muted-foreground">No items found</div>
 				) : (
-					filteredStock.map((item) => (
+					inventory.map((item) => (
 						<StockCard key={item.id} item={item} />
 					))
 				)}

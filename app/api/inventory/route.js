@@ -6,6 +6,8 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const storeId = searchParams.get("storeId");
+    const searchCriteria = searchParams.get("searchCriteria");
+    const searchTerm = searchParams.get("searchTerm");
 
     if (!storeId) {
       return NextResponse.json(
@@ -34,6 +36,35 @@ export async function GET(request) {
       dbUser: store.dbUser,
       dbPassword: store.dbPassword,
     });
+
+    // Build dynamic WHERE clause based on search criteria
+    let whereClause = "AA.CompanyId = 2 AND (FF.Qty - FF.Outward) > 0";
+    const request_obj = storeDb.request().input('companyId', 2);
+
+    if (searchTerm) {
+      switch (searchCriteria) {
+        case "name":
+          whereClause += " AND AA.ItemName LIKE @searchTerm";
+          request_obj.input('searchTerm', `%${searchTerm}%`);
+          break;
+        case "generic":
+          whereClause += " AND DD.GrpName LIKE @searchTerm";
+          request_obj.input('searchTerm', `%${searchTerm}%`);
+          break;
+        case "location":
+          whereClause += " AND AA.LOCN LIKE @searchTerm";
+          request_obj.input('searchTerm', `%${searchTerm}%`);
+          break;
+        case "manufacturer":
+          whereClause += " AND CC.Led_Name LIKE @searchTerm";
+          request_obj.input('searchTerm', `%${searchTerm}%`);
+          break;
+        case "barcode":
+          whereClause += " AND FF.Barcode LIKE @searchTerm";
+          request_obj.input('searchTerm', `%${searchTerm}%`);
+          break;
+      }
+    }
 
     const query = `
       SELECT 
@@ -67,12 +98,10 @@ export async function GET(request) {
       LEFT JOIN tbl_GroupDetail DD ON AA.Generic_GrpId = DD.GrpId AND DD.Type_Id = 48
       LEFT JOIN tbl_GroupDetail EE ON AA.ItemCatg_GrpId = EE.GrpId AND EE.Type_Id = 30
       LEFT JOIN tbl_Inward FF ON AA.ItemDetailId = FF.ItemDetailId
-      WHERE AA.CompanyId = 2 AND (FF.Qty - FF.Outward) > 0
+      WHERE ${whereClause}
     `;
 
-    const result = await storeDb.request()
-      .input('companyId', 2)
-      .query(query);
+    const result = await request_obj.query(query);
 
     // Group data by ItemDetailId
     const groupedData = {};
