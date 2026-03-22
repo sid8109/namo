@@ -23,7 +23,7 @@ export function StockCard({ item }) {
 				onClick={() => setIsExpanded(!isExpanded)}
 			>
 				<div className="flex justify-between items-center">
-					<h3 className="font-bold text-base leading-tight">{item.name}</h3>
+					<h3 className="font-bold text-base leading-tight">{item.name} {item.packing}</h3>
 					<div className="text-right">
 						<div className="text-xl font-black text-primary leading-none">{item.totalQty}</div>
 						<span className="text-[9px] text-muted-foreground font-bold uppercase">Available</span>
