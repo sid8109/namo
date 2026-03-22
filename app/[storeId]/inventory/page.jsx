@@ -14,6 +14,7 @@ import { StockCard } from "@/components/stock-card"
 import { AddMedicineDrawer } from "@/components/add-medicine-drawer"
 import { useStock } from "@/contexts/stock-context"
 import { useState, useEffect, useRef } from "react"
+import axios from "axios"
 
 export default function InventoryPage() {
 	const router = useRouter()
@@ -46,18 +47,18 @@ export default function InventoryPage() {
 		const fetchInventory = async () => {
 			try {
 				setLoading(true)
-				const queryParams = new URLSearchParams({
-					storeId: params.storeId,
-					searchCriteria: searchCriteria,
-					searchTerm: debouncedSearchTerm,
+				const response = await axios.get("/api/inventory", {
+					params: {
+						storeId: params.storeId,
+						searchCriteria: searchCriteria,
+						searchTerm: debouncedSearchTerm,
+					},
 				})
-				const response = await fetch(`/api/inventory?${queryParams.toString()}`)
-				const result = await response.json()
 
-				if (result.success) {
-					setInventory(result.data)
+				if (response.data.success) {
+					setInventory(response.data.data)
 				} else {
-					console.error("Failed to fetch inventory:", result.error)
+					console.error("Failed to fetch inventory:", response.data.error)
 					setInventory([])
 				}
 			} catch (error) {

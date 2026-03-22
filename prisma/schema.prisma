@@ -22,4 +22,18 @@ model Store {
   dbUser    String
   dbPassword String
   createdAt DateTime @default(now())
+  scanned    Scanned[]
+}
+
+model Scanned {
+  id        String   @id @default(uuid())
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  barcode   String
+  count     Int      @default(1)
+  scannedAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@unique([storeId, barcode])
+  @@index([storeId])
 }

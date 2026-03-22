@@ -7,17 +7,35 @@ import { useStock } from "@/contexts/stock-context"
 import { toast } from "sonner"
 import { useEffect, useRef, useState } from "react"
 import Quagga from "@ericblade/quagga2"
+import { useParams } from "next/navigation"
+import axios from "axios"
 
 export default function ScannerPage() {
 	const { addPendingItem } = useStock()
+	const params = useParams()
+	const storeId = params.storeId
 	const containerRef = useRef(null)
 	const [cameraError, setCameraError] = useState(null)
 	const isMountedRef = useRef(false)
 	const scannedCodesRef = useRef(new Set())
+	const scanCooldownRef = useRef(false)
 
 	useEffect(() => {
+		const postBarcode = async (barcode) => {
+			try {
+				await axios.post("/api/scanned", { barcode, storeId })
+				toast.success("Barcode Saved")
+			} catch (err) {
+				console.error("Post barcode error:", err)
+				const errorMessage = err.response?.data?.error || "Failed to process barcode"
+				toast.error("Scan Failed", {
+					description: errorMessage,
+				})
+			}
+		}
+
 		isMountedRef.current = true
-		
+
 		const startScanning = async () => {
 			try {
 				if (!containerRef.current) {
@@ -25,7 +43,7 @@ export default function ScannerPage() {
 					return
 				}
 
-				await new Promise(resolve => setTimeout(resolve, 300))
+				await new Promise((resolve) => setTimeout(resolve, 300))
 
 				Quagga.init(
 					{
@@ -39,18 +57,7 @@ export default function ScannerPage() {
 							target: containerRef.current,
 						},
 						decoder: {
-							readers: [
-								"code_128_reader",
-								"code_39_reader",
-								"ean_reader",
-								"ean_8_reader",
-								"upc_reader",
-								"upc_e_reader",
-								"codabar_reader",
-								"code_39_vin_reader",
-								"code_93_reader",
-								"i2of5_reader",
-							],
+							readers: ["code_128_reader"],
 							debug: {
 								showCanvas: false,
 								showPatternLabel: false,
@@ -76,18 +83,16 @@ export default function ScannerPage() {
 						}
 
 						console.log("Quagga initialized successfully")
-						toast.info("Scanner Active", {
-							description: "Scanning for medicine barcodes...",
-						})
 
-						// Force all video/canvas elements to fill container
 						const video = containerRef.current?.querySelector("video")
 						const canvas = containerRef.current?.querySelector("canvas")
+
 						if (video) {
 							video.style.width = "100%"
 							video.style.height = "100%"
 							video.style.objectFit = "cover"
 						}
+
 						if (canvas) {
 							canvas.style.width = "100%"
 							canvas.style.height = "100%"
@@ -96,27 +101,29 @@ export default function ScannerPage() {
 						Quagga.start()
 
 						Quagga.onDetected((result) => {
-							if (result && result.codeResult && result.codeResult.code) {
+							if (result?.codeResult?.code && !scanCooldownRef.current) {
 								const barcode = result.codeResult.code
-								
+
 								if (barcode.length !== 12) {
 									return
 								}
-								
-								console.log("✓ Scanned barcode:", barcode)
-								
+
+								scanCooldownRef.current = true
+
 								if (!scannedCodesRef.current.has(barcode)) {
 									scannedCodesRef.current.add(barcode)
 									setTimeout(() => scannedCodesRef.current.delete(barcode), 1500)
-									
-									toast.success("Barcode Detected", {
-										description: `Code: ${barcode}`,
-									})
-									
+
 									if (navigator.vibrate) {
 										navigator.vibrate(200)
 									}
+
+									postBarcode(barcode)
 								}
+
+								setTimeout(() => {
+									scanCooldownRef.current = false
+								}, 2000)
 							}
 						})
 					}
@@ -143,7 +150,7 @@ export default function ScannerPage() {
 			}
 			isMountedRef.current = false
 		}
-	}, [])
+	}, [storeId])
 
 	return (
 		<div className="flex flex-col min-h-[calc(100vh-8rem)] bg-black text-white -mx-4 -mt-4">

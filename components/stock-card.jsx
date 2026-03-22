@@ -35,12 +35,12 @@ export function StockCard({ item }) {
 				<div className="mx-2 mb-2 bg-primary/5 rounded-2xl p-3 animate-in slide-in-from-top-2 fade-in duration-200 border border-primary/10">
 					<h4 className="text-[10px] font-black uppercase tracking-widest text-primary mb-2">Batch Details</h4>
 					<div className="space-y-2">
-						{item.batches?.map((batch) => {
+						{item.batches?.map((batch, index) => {
 							const isNearExpiry = new Date(batch.expiry) < ninetyDaysFromNow
 							const isExpired = new Date(batch.expiry) < now
 
 							return (
-								<div key={batch.id} className="p-2 border border-primary/10 rounded-lg">
+								<div key={`${batch.id}-${index}`} className="p-2 border border-primary/10 rounded-lg">
 									<div className="flex justify-between gap-3">
 										<div className="flex-1 min-w-0">
 											<p className="font-mono font-bold text-muted-foreground text-xs">Batch: {batch.batch}</p>
