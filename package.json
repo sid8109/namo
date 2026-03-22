@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@ericblade/quagga2": "^1.12.1",
     "@prisma/adapter-neon": "^7.3.0",
     "@prisma/client": "^7.3.0",
     "@radix-ui/react-dialog": "^1.1.15",
@@ -19,6 +20,8 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^17.2.3",
+    "html5-qrcode": "^2.3.8",
+    "instascan": "^1.0.0",
     "lucide-react": "^0.562.0",
     "mssql": "^12.2.0",
     "next": "16.1.4",
