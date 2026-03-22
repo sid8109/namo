@@ -81,11 +81,28 @@ export default function ScannerPage() {
 							description: "Scanning for medicine barcodes...",
 						})
 
+						// Force all video/canvas elements to fill container
+						const video = containerRef.current?.querySelector("video")
+						const canvas = containerRef.current?.querySelector("canvas")
+						if (video) {
+							video.style.width = "100%"
+							video.style.height = "100%"
+							video.style.objectFit = "cover"
+						}
+						if (canvas) {
+							canvas.style.width = "100%"
+							canvas.style.height = "100%"
+						}
+
 						Quagga.start()
 
 						Quagga.onDetected((result) => {
 							if (result && result.codeResult && result.codeResult.code) {
 								const barcode = result.codeResult.code
+								
+								if (barcode.length !== 12) {
+									return
+								}
 								
 								console.log("✓ Scanned barcode:", barcode)
 								
@@ -132,7 +149,7 @@ export default function ScannerPage() {
 	return (
 		<div className="flex flex-col min-h-[calc(100vh-8rem)] bg-black text-white -mx-4 -mt-4">
 			<div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-8">
-				<div ref={containerRef} className="w-64 h-64 border-2 border-primary rounded-3xl relative overflow-hidden bg-black">
+				<div ref={containerRef} className="w-72 h-72 border-2 border-primary rounded-3xl relative overflow-hidden bg-black">
 					{!cameraError && (
 						<div className="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)] animate-scan z-10" />
 					)}
