@@ -106,9 +106,6 @@ export default function InventoryPage() {
 							</Button>
 						</DropdownMenuTrigger>
 						<DropdownMenuContent align="end" className="w-48 rounded-xl p-1">
-							<DropdownMenuItem className="rounded-lg" onClick={() => setSearchCriteria("barcode")}>
-								Barcode
-							</DropdownMenuItem>
 							<DropdownMenuItem className="rounded-lg" onClick={() => setSearchCriteria("name")}>
 								Product Name
 							</DropdownMenuItem>

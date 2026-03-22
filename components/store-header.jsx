@@ -15,6 +15,7 @@ export function StoreHeader() {
 	const { getStoreById } = useStores()
 
 	const isSyncPage = pathname.includes("/sync")
+	const isScannerPage = pathname.includes("/scanner")
 	const currentStore = getStoreById(params.storeId)
 	const displayName = currentStore?.name || "Store"
 
@@ -24,7 +25,7 @@ export function StoreHeader() {
 				<Button
 					variant="ghost"
 					size="icon"
-					onClick={() => router.push(isSyncPage ? `/${params.storeId}/inventory` : "/")}
+					onClick={() => router.back()}
 				>
 					<ArrowLeft className="w-5 h-5" />
 				</Button>
@@ -33,7 +34,7 @@ export function StoreHeader() {
 						{displayName}
 					</h2>
 					<p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
-						{isSyncPage ? "Review Changes" : "Pharmacy Management"}
+						{isSyncPage ? "Review Changes" : isScannerPage ? "Scan Items" : "Pharmacy Management"}
 					</p>
 				</div>
 			</div>

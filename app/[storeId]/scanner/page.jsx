@@ -10,7 +10,6 @@ import Quagga from "@ericblade/quagga2"
 
 export default function ScannerPage() {
 	const { addPendingItem } = useStock()
-	const videoRef = useRef(null)
 	const containerRef = useRef(null)
 	const [cameraError, setCameraError] = useState(null)
 	const isMountedRef = useRef(false)
