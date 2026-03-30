@@ -1,7 +1,6 @@
 "use client"
 
 import { Barcode } from "lucide-react"
-import { useStock } from "@/contexts/stock-context"
 import { toast } from "sonner"
 import { useEffect, useRef, useState } from "react"
 import Quagga from "@ericblade/quagga2"
@@ -9,7 +8,6 @@ import { useParams } from "next/navigation"
 import axios from "axios"
 
 export default function ScannerPage() {
-	const { addPendingItem } = useStock()
 	const params = useParams()
 	const storeId = params.storeId
 	const containerRef = useRef(null)
@@ -151,29 +149,33 @@ export default function ScannerPage() {
 	}, [storeId])
 
 	return (
-		<div className="flex flex-col min-h-[calc(100vh-8rem)] bg-black text-white -mx-4 -mt-4">
-			<div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-8">
-				<div ref={containerRef} className="w-72 h-72 border-2 border-primary rounded-3xl relative overflow-hidden bg-black">
+		<div className="min-h-[100dvh] bg-black text-white px-4 pt-[max(env(safe-area-inset-top),12px)] pb-[max(env(safe-area-inset-bottom),16px)]">
+			<div className="min-h-[calc(100dvh-28px)] flex flex-col items-center justify-center gap-6 text-center">
+				<div
+					ref={containerRef}
+					className="w-[84vw] max-w-[22rem] aspect-square border-2 border-primary rounded-2xl relative overflow-hidden bg-black shadow-[0_0_0_1px_rgba(255,255,255,0.04)]"
+				>
 					{!cameraError && (
-						<div className="absolute top-1/2 left-0 right-0 h-0.5 bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.8)] animate-scan z-10" />
+						<div className="absolute top-1/2 left-0 right-0 h-[2px] bg-red-500 shadow-[0_0_12px_rgba(239,68,68,0.85)] animate-scan z-10" />
 					)}
 					{cameraError && (
 						<div className="w-full h-full flex items-center justify-center">
 							<div className="absolute inset-0 bg-primary/10" />
-							<Barcode className="w-24 h-24 text-primary opacity-50" />
+							<Barcode className="w-20 h-20 text-primary opacity-50" />
 						</div>
 					)}
 				</div>
-				<div className="space-y-2">
+
+				<div className="space-y-1.5 px-2 max-w-[22rem]">
 					{!cameraError ? (
 						<>
-							<p className="text-lg font-medium">Align barcode within the frame</p>
-							<p className="text-sm text-muted-foreground">Decoding barcode...</p>
+							<p className="text-base font-semibold tracking-tight">Align barcode inside the frame</p>
+							<p className="text-xs text-muted-foreground">Hold steady for quick detection</p>
 						</>
 					) : (
 						<>
-							<p className="text-lg font-medium text-red-500">Camera Access Failed</p>
-							<p className="text-sm text-muted-foreground">{cameraError}</p>
+							<p className="text-base font-semibold text-red-500 tracking-tight">Camera access failed</p>
+							<p className="text-xs text-muted-foreground leading-relaxed">{cameraError}</p>
 						</>
 					)}
 				</div>
