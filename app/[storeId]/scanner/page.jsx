@@ -1,8 +1,6 @@
 "use client"
 
 import { Barcode } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { AddMedicineDrawer } from "@/components/add-medicine-drawer"
 import { useStock } from "@/contexts/stock-context"
 import { toast } from "sonner"
 import { useEffect, useRef, useState } from "react"
@@ -170,7 +168,7 @@ export default function ScannerPage() {
 					{!cameraError ? (
 						<>
 							<p className="text-lg font-medium">Align barcode within the frame</p>
-							<p className="text-sm text-muted-foreground">Searching for existing medicines...</p>
+							<p className="text-sm text-muted-foreground">Decoding barcode...</p>
 						</>
 					) : (
 						<>
@@ -179,10 +177,6 @@ export default function ScannerPage() {
 						</>
 					)}
 				</div>
-				<AddMedicineDrawer
-					trigger={<Button className="h-12 rounded-xl">Simulate Not in DB</Button>}
-					onAdd={addPendingItem}
-				/>
 			</div>
 		</div>
 	)

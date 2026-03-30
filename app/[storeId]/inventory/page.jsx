@@ -25,6 +25,11 @@ export default function InventoryPage() {
 	const [loading, setLoading] = useState(true)
 	const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
 	const debounceTimer = useRef(null)
+	const prevFiltersRef = useRef({
+		storeId: null,
+		searchCriteria: "name",
+		searchTerm: "",
+	})
 
 	// Debounce search term
 	useEffect(() => {
@@ -44,13 +49,31 @@ export default function InventoryPage() {
 	}, [searchTerm])
 
 	useEffect(() => {
+		const currentStoreId = params.storeId
+		const currentSearchTerm = debouncedSearchTerm?.trim() || ""
+
+		const isStoreChanged = prevFiltersRef.current.storeId !== currentStoreId
+		const isCriteriaChanged = prevFiltersRef.current.searchCriteria !== searchCriteria
+		const wasSearchEmpty = (prevFiltersRef.current.searchTerm || "").trim() === ""
+		const isSearchEmpty = currentSearchTerm === ""
+
+		// Skip reload when only dropdown criteria changes and search is empty
+		if (!isStoreChanged && isCriteriaChanged && wasSearchEmpty && isSearchEmpty) {
+			prevFiltersRef.current = {
+				storeId: currentStoreId,
+				searchCriteria,
+				searchTerm: currentSearchTerm,
+			}
+			return
+		}
+
 		const fetchInventory = async () => {
 			try {
 				setLoading(true)
 				const response = await axios.get("/api/inventory", {
 					params: {
-						storeId: params.storeId,
-						searchCriteria: searchCriteria,
+						storeId: currentStoreId,
+						searchCriteria,
 						searchTerm: debouncedSearchTerm,
 					},
 				})
@@ -69,8 +92,14 @@ export default function InventoryPage() {
 			}
 		}
 
-		if (params.storeId) {
+		if (currentStoreId) {
 			fetchInventory()
+		}
+
+		prevFiltersRef.current = {
+			storeId: currentStoreId,
+			searchCriteria,
+			searchTerm: currentSearchTerm,
 		}
 	}, [params.storeId, searchCriteria, debouncedSearchTerm])
 
@@ -85,13 +114,13 @@ export default function InventoryPage() {
 
 	return (
 		<>
-			<div className="p-4 space-y-4">
+			<div className="p-3 space-y-3">
 				<div className="flex gap-2">
 					<div className="relative flex-1">
 						<Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
 						<Input
 							placeholder={`Search by ${getSearchLabel().toLowerCase()}...`}
-							className="pl-10 h-12 rounded-xl bg-white border-none shadow-sm"
+							className="pl-10 h-11 rounded-lg bg-white border-none shadow-sm text-[16px] placeholder:text-[16px]"
 							value={searchTerm}
 							onChange={(e) => setSearchTerm(e.target.value)}
 						/>
@@ -100,42 +129,44 @@ export default function InventoryPage() {
 						<DropdownMenuTrigger asChild>
 							<Button
 								variant="outline"
-								className="h-12 w-40 px-3 rounded-xl bg-white border-none shadow-sm gap-2 text-xs font-bold uppercase text-muted-foreground"
+								className="h-11 w-36 px-3 rounded-lg bg-white border-none shadow-sm gap-2 text-[11px] font-semibold text-muted-foreground"
 							>
 								<ChevronDown className="w-4 h-4" />
 								{getSearchLabel()}
 							</Button>
 						</DropdownMenuTrigger>
-						<DropdownMenuContent align="end" className="w-48 rounded-xl p-1">
-							<DropdownMenuItem className="rounded-lg" onClick={() => setSearchCriteria("name")}>
+						<DropdownMenuContent align="end" className="w-44 rounded-lg p-1">
+							<DropdownMenuItem className="rounded-md" onClick={() => setSearchCriteria("name")}>
 								Product Name
 							</DropdownMenuItem>
-							<DropdownMenuItem className="rounded-lg" onClick={() => setSearchCriteria("generic")}>
+							<DropdownMenuItem className="rounded-md" onClick={() => setSearchCriteria("generic")}>
 								Generic Name
 							</DropdownMenuItem>
-							<DropdownMenuItem className="rounded-lg" onClick={() => setSearchCriteria("location")}>
+							<DropdownMenuItem className="rounded-md" onClick={() => setSearchCriteria("location")}>
 								Location
 							</DropdownMenuItem>
-							<DropdownMenuItem className="rounded-lg" onClick={() => setSearchCriteria("manufacturer")}>
+							<DropdownMenuItem className="rounded-md" onClick={() => setSearchCriteria("manufacturer")}>
 								Manufacturer
 							</DropdownMenuItem>
 						</DropdownMenuContent>
 					</DropdownMenu>
 				</div>
 
-				<div className="grid grid-cols-2 gap-3">
+				{/* <div className="grid grid-cols-2 gap-2">
 					<Button
 						onClick={() => router.push(`/${params.storeId}/scanner`)}
-						className="h-14 rounded-xl text-lg gap-2 shadow-lg shadow-primary/20"
+						className="h-12 rounded-lg text-base gap-2 shadow-md shadow-primary/20"
 					>
-						<Barcode className="w-6 h-6" />
+						<Barcode className="w-5 h-5" />
 						Scan
 					</Button>
-					<AddMedicineDrawer onAdd={addPendingItem} />
-				</div>
+					<div className="w-full [&_button]:w-full [&_button]:h-12 [&_button]:rounded-lg">
+						<AddMedicineDrawer onAdd={addPendingItem} />
+					</div>
+				</div> */}
 			</div>
 
-			<div className="px-4 space-y-3">
+			<div className="px-3 space-y-2">
 				{loading ? (
 					<div className="text-center py-8 text-muted-foreground">Loading inventory...</div>
 				) : inventory.length === 0 ? (

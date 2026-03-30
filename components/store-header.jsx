@@ -16,40 +16,48 @@ export function StoreHeader() {
 
 	const isSyncPage = pathname.includes("/sync")
 	const isScannerPage = pathname.includes("/scanner")
-	const currentStore = getStoreById(params.storeId)
+	const storeId = Array.isArray(params.storeId) ? params.storeId[0] : params.storeId
+	const currentStore = getStoreById(storeId)
 	const displayName = currentStore?.name || "Store"
+	const pendingCount = pendingItems.length
 
 	return (
-		<header className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b p-4 flex items-center justify-between">
-			<div className="flex items-center gap-3">
-				<Button
-					variant="ghost"
-					size="icon"
-					onClick={() => router.back()}
-				>
-					<ArrowLeft className="w-5 h-5" />
-				</Button>
-				<div>
-					<h2 className="font-bold text-sm leading-none">
-						{displayName}
-					</h2>
-					<p className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
-						{isSyncPage ? "Review Changes" : isScannerPage ? "Scan Items" : "Pharmacy Management"}
-					</p>
+		<header className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-3 pb-2 pt-[max(0.5rem,env(safe-area-inset-top))]">
+			<div className="flex items-center justify-between gap-2">
+				<div className="flex min-w-0 items-center gap-2.5">
+					<Button
+						variant="ghost"
+						size="icon"
+						className="h-10 w-10 shrink-0"
+						aria-label="Go back"
+						onClick={() => router.back()}
+					>
+						<ArrowLeft className="h-5 w-5" />
+					</Button>
+					<div className="min-w-0">
+						<h2 className="truncate text-sm font-semibold leading-tight">
+							{displayName}
+						</h2>
+						<p className="mt-0.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+							{isSyncPage ? "Review Changes" : isScannerPage ? "Scan Items" : "Pharmacy Management"}
+						</p>
+					</div>
 				</div>
+
+				<Button
+					variant="outline"
+					size="sm"
+					disabled={!storeId}
+					className={cn(
+						"h-9 rounded-full px-3 text-xs font-medium gap-2 transition-all whitespace-nowrap",
+						pendingCount > 0 && "bg-primary/10 border-primary text-primary"
+					)}
+					onClick={() => router.push(`/${storeId}/sync`)}
+				>
+					<Send className={cn("h-3.5 w-3.5", pendingCount > 0 && "animate-pulse")} />
+					{pendingCount > 0 ? `${pendingCount} Pending` : "All Synced"}
+				</Button>
 			</div>
-			<Button
-				variant="outline"
-				size="sm"
-				className={cn(
-					"rounded-full gap-2 transition-all",
-					pendingItems.length > 0 && "bg-primary/10 border-primary text-primary"
-				)}
-				onClick={() => router.push(`/${params.storeId}/sync`)}
-			>
-				<Send className={cn("w-4 h-4", pendingItems.length > 0 && "animate-pulse")} />
-				{pendingItems.length > 0 ? `${pendingItems.length} Pending` : "Synced"}
-			</Button>
 		</header>
 	)
 }
