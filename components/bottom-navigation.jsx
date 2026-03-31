@@ -1,15 +1,13 @@
 "use client"
 
-import { Package, Barcode, History } from "lucide-react"
+import { Package, Barcode, History, ClipboardList, BarChart3 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useRouter, usePathname, useParams } from "next/navigation"
-import { useStock } from "@/contexts/stock-context"
 
 export function BottomNavigation() {
 	const router = useRouter()
 	const pathname = usePathname()
 	const params = useParams()
-	const { pendingItems } = useStock()
 
 	const storeId = Array.isArray(params.storeId) ? params.storeId[0] : params.storeId
 	const isActive = (path) => pathname.includes(path)
@@ -22,7 +20,7 @@ export function BottomNavigation() {
 
 	return (
 		<div className="fixed bottom-0 left-0 right-0 z-50 px-3 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] bg-background/80 backdrop-blur-md border-t border-border/60">
-			<div className="grid grid-cols-3 gap-2 max-w-md mx-auto">
+			<div className="grid grid-cols-5 gap-2 max-w-md mx-auto">
 				<Button
 					variant="ghost"
 					className={tabClass(isActive("/inventory"))}
@@ -45,17 +43,32 @@ export function BottomNavigation() {
 
 				<Button
 					variant="ghost"
-					className={`${tabClass(isActive("/sync"))} relative`}
+					className={tabClass(isActive("/sync"))}
 					onClick={() => router.push(`/${storeId}/sync`)}
 					aria-label="Sync"
 				>
 					<History className="w-5 h-5" />
 					<span>Sync</span>
-					{pendingItems.length > 0 && (
-						<span className="absolute top-1 right-4 min-w-4 h-4 px-1 bg-red-500 text-white text-[9px] rounded-full flex items-center justify-center font-semibold leading-none">
-							{pendingItems.length}
-						</span>
-					)}
+				</Button>
+
+				<Button
+					variant="ghost"
+					className={tabClass(isActive("/orders"))}
+					onClick={() => router.push(`/${storeId}/orders`)}
+					aria-label="Orders"
+				>
+					<ClipboardList className="w-5 h-5" />
+					<span>Order</span>
+				</Button>
+
+				<Button
+					variant="ghost"
+					className={tabClass(isActive("/reports"))}
+					onClick={() => router.push(`/${storeId}/reports`)}
+					aria-label="Reports"
+				>
+					<BarChart3 className="w-5 h-5" />
+					<span>Reports</span>
 				</Button>
 			</div>
 		</div>

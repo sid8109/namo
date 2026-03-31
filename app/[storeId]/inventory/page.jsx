@@ -1,6 +1,6 @@
 "use client"
 
-import { Search, Barcode, ChevronDown } from "lucide-react"
+import { Search, ChevronDown } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -9,17 +9,16 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { useRouter, useParams } from "next/navigation"
+import { useParams } from "next/navigation"
 import { StockCard } from "@/components/stock-card"
-import { AddMedicineDrawer } from "@/components/add-medicine-drawer"
+import { InventoryLoadingSkeleton } from "@/components/inventory-loading-skeleton"
 import { useStock } from "@/contexts/stock-context"
 import { useState, useEffect, useRef } from "react"
 import axios from "axios"
 
 export default function InventoryPage() {
-	const router = useRouter()
 	const params = useParams()
-	const { searchTerm, setSearchTerm, addPendingItem } = useStock()
+	const { searchTerm, setSearchTerm } = useStock()
 	const [searchCriteria, setSearchCriteria] = useState("name")
 	const [inventory, setInventory] = useState([])
 	const [loading, setLoading] = useState(true)
@@ -168,13 +167,11 @@ export default function InventoryPage() {
 
 			<div className="px-3 space-y-2">
 				{loading ? (
-					<div className="text-center py-8 text-muted-foreground">Loading inventory...</div>
+					<InventoryLoadingSkeleton />
 				) : inventory.length === 0 ? (
 					<div className="text-center py-8 text-muted-foreground">No items found</div>
 				) : (
-					inventory.map((item) => (
-						<StockCard key={item.id} item={item} />
-					))
+					inventory.map((item) => <StockCard key={item.id} item={item} />)
 				)}
 			</div>
 		</>

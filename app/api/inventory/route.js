@@ -144,7 +144,9 @@ export async function GET(request) {
       groupedData[item.id].totalQty += item.qty;
     });
 
-    const groupedArray = Object.values(groupedData);
+    const groupedArray = Object.values(groupedData).sort((a, b) =>
+      (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" })
+    );
 
     return NextResponse.json({
       success: true,

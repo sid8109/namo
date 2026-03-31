@@ -3,42 +3,6 @@
 import { Button } from "@/components/ui/button"
 import { Trash2, Edit2, SaveAll, Plus, Minus } from "lucide-react"
 
-export const DUMMY_PENDING_SYNCS = [
-	{
-		id: "1",
-		name: "Aspirin 500mg",
-		batch: "BATCH001",
-		quantity: 50,
-		scannedQuantity: 50,
-		barcode: "123456789012",
-		mrp: 120,
-		ptr: 96,
-		expiry: "2027-02-01",
-	},
-	{
-		id: "2",
-		name: "Paracetamol 650mg",
-		batch: "BATCH002",
-		quantity: 30,
-		scannedQuantity: 28,
-		barcode: "123456789013",
-		mrp: 85,
-		ptr: 68,
-		expiry: "2026-08-01",
-	},
-	{
-		id: "3",
-		name: "Amoxicillin 250mg",
-		batch: "BATCH003",
-		quantity: 75,
-		scannedQuantity: 72,
-		barcode: "123456789014",
-		mrp: 210,
-		ptr: 168,
-		expiry: "2026-05-01",
-	},
-]
-
 export function PendingSyncsCard({
 	item,
 	editingId,
@@ -49,9 +13,20 @@ export function PendingSyncsCard({
 	onDecrement = () => {},
 	onDeleteClick = () => {},
 }) {
-	const isEditing = editingId === item.id
-	const physicalQty = isEditing ? editValue : item.scannedQuantity
-	const variance = item.quantity - physicalQty
+	const rowKey = item.scannedId ?? item.id
+	const isEditing = editingId === rowKey
+
+	const systemQty = Number(item.quantity ?? item.systemCount ?? item.qty ?? 0)
+	const basePhysicalQty = Number(item.scannedCount ?? 0)
+	const physicalQty = isEditing ? Number(editValue ?? 0) : basePhysicalQty
+
+	// shortage => negative, excess => positive
+	const variance = physicalQty - systemQty
+	const signedVariance = variance > 0 ? `+${variance}` : `${variance}`
+
+	const expiryValue = item.expiry ?? item.exp ?? null
+	const ptrValue = Number(item.ptr ?? item.batchPTR ?? item.ptrRate ?? 0)
+	const mrpValue = Number(item.mrp ?? item.batchMRP ?? 0)
 
 	const formatExpiry = (value) =>
 		value ? new Date(value).toLocaleDateString("en-IN", { month: "short", year: "numeric" }) : "--"
@@ -78,15 +53,15 @@ export function PendingSyncsCard({
 
 						<div className="flex flex-wrap gap-1.5 mt-2">
 							<span className="text-[10px] font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">
-								MRP ₹{Number(item.mrp ?? 0).toFixed(2)}
+								MRP ₹{mrpValue.toFixed(2)}
 							</span>
 							<span className="text-[10px] font-semibold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">
-								PTR ₹{Number(item.ptr ?? 0).toFixed(2)}
+								PTR ₹{ptrValue.toFixed(2)}
 							</span>
 							<span
-								className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold ${getExpiryTone(item.expiry)}`}
+								className={`inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold ${getExpiryTone(expiryValue)}`}
 							>
-								EXP {formatExpiry(item.expiry)}
+								EXP {formatExpiry(expiryValue)}
 							</span>
 						</div>
 					</div>
@@ -95,7 +70,7 @@ export function PendingSyncsCard({
 							<Button
 								variant="ghost"
 								size="sm"
-								onClick={() => onEditSave(item.id)}
+								onClick={() => onEditSave(rowKey)}
 								className="h-8 w-8 text-green-600 active:bg-green-50"
 							>
 								<SaveAll className="h-4 w-4" />
@@ -113,7 +88,7 @@ export function PendingSyncsCard({
 						<Button
 							variant="ghost"
 							size="sm"
-							onClick={() => onDeleteClick(item.id, item.name)}
+							onClick={() => onDeleteClick(rowKey, item.name)}
 							className="h-8 w-8 text-destructive active:bg-red-50"
 						>
 							<Trash2 className="h-4 w-4" />
@@ -124,7 +99,7 @@ export function PendingSyncsCard({
 				{/* Quantities Grid */}
 				<div className="grid grid-cols-3 gap-2">
 					<div className="text-center bg-gray-50 rounded-lg p-2.5">
-						<div className="text-base font-black text-muted-foreground leading-none">{item.quantity}</div>
+						<div className="text-base font-black text-muted-foreground leading-none">{systemQty}</div>
 						<span className="text-[10px] text-muted-foreground font-bold uppercase block mt-1">System</span>
 					</div>
 
@@ -135,7 +110,7 @@ export function PendingSyncsCard({
 									variant="ghost"
 									size="sm"
 									className="h-6 w-6 p-0 active:bg-blue-100"
-									onClick={() => onDecrement(item.id)}
+									onClick={() => onDecrement(rowKey)}
 								>
 									<Minus className="h-3 w-3" />
 								</Button>
@@ -148,7 +123,7 @@ export function PendingSyncsCard({
 									variant="ghost"
 									size="sm"
 									className="h-6 w-6 p-0 active:bg-blue-100"
-									onClick={() => onIncrement(item.id)}
+									onClick={() => onIncrement(rowKey)}
 								>
 									<Plus className="h-3 w-3" />
 								</Button>
@@ -160,7 +135,7 @@ export function PendingSyncsCard({
 					</div>
 
 					<div className="text-center bg-orange-50 rounded-lg p-2.5">
-						<div className="text-base font-black text-orange-600 leading-none">{variance}</div>
+						<div className="text-base font-black text-orange-600 leading-none">{signedVariance}</div>
 						<span className="text-[10px] text-muted-foreground font-bold uppercase block mt-1">Variance</span>
 					</div>
 				</div>

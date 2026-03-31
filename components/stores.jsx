@@ -4,6 +4,7 @@ import { Store } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { useStores } from "@/contexts/stores-context"
+import { StoresLoadingSkeleton } from "@/components/stores-loading-skeleton"
 
 export function Stores() {
 	const router = useRouter()
@@ -22,9 +23,7 @@ export function Stores() {
 
 				<div className="space-y-2.5">
 					{loading ? (
-						<p className="text-center text-sm text-muted-foreground py-6 rounded-xl border bg-muted/30">
-							Loading stores...
-						</p>
+						<StoresLoadingSkeleton />
 					) : error ? (
 						<p className="text-center text-sm text-destructive py-6 rounded-xl border border-destructive/30 bg-destructive/5">
 							{error}

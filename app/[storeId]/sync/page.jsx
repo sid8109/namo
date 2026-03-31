@@ -1,19 +1,58 @@
 "use client"
 
-import { useState } from "react"
-import { PendingSyncsCard, DUMMY_PENDING_SYNCS } from "@/components/pending-syncs-card"
-import { useStock } from "@/contexts/stock-context"
+import { useEffect, useState } from "react"
+import { PendingSyncsCard } from "@/components/pending-syncs-card"
+import { useParams } from "next/navigation"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Check, Database } from "lucide-react"
+import axios from "axios"
+import { PendingSyncsSkeleton } from "@/components/pending-syncs-skeleton"
 
-export default function QueuePage() {
-	const { pendingItems, removePendingItem, clearPendingItems } = useStock()
-	const displayItems = pendingItems.length > 0 ? pendingItems : DUMMY_PENDING_SYNCS
+export default function Sync() {
+	const { storeId } = useParams()
+	const [syncItems, setSyncItems] = useState([])
+	const [isLoadingSync, setIsLoadingSync] = useState(false)
+	const displayItems = syncItems
 	const [editingId, setEditingId] = useState(null)
 	const [editValues, setEditValues] = useState({})
 	const [deleteConfirm, setDeleteConfirm] = useState(null)
+	const getItemKey = (item) => item?.scannedId ?? item?.id
+
+	useEffect(() => {
+		if (!storeId) return
+
+		let active = true
+		const fetchSyncData = async () => {
+			try {
+				setIsLoadingSync(true)
+				const { data: json } = await axios.get(`/api/sync?storeId=${storeId}`)
+
+				if (!active) return
+				if (!json?.success) {
+					toast.error(json?.error || "Failed to load sync data")
+					setSyncItems([])
+					return
+				}
+
+				setSyncItems(json.data || [])
+				console.log("Fetched sync data:", json.data)
+			} catch (err) {
+				if (active) {
+					toast.error(err?.response?.data?.error || "Failed to load sync data")
+					setSyncItems([])
+				}
+			} finally {
+				if (active) setIsLoadingSync(false)
+			}
+		}
+
+		fetchSyncData()
+		return () => {
+			active = false
+		}
+	}, [storeId])
 
 	const handleSyncAll = () => {
 		if (displayItems.length === 0) return
@@ -23,24 +62,51 @@ export default function QueuePage() {
 		})
 
 		setTimeout(() => {
-			if (pendingItems.length > 0) clearPendingItems()
 			toast.success("Sync Successful")
 		}, 1500)
 	}
 
-	const handleRemove = (id) => {
-		removePendingItem(id)
-		toast.success("Item Removed", {
-			description: "Medicine removed from sync queue",
-		})
-	}
-
 	const handleEditStart = (item) => {
-		setEditingId(item.id)
-		setEditValues((prev) => ({ ...prev, [item.id]: item.scannedQuantity }))
+		const key = getItemKey(item)
+		if (!key) return
+		setEditingId(key)
+		setEditValues((prev) => ({
+			...prev,
+			[key]: item.scannedCount ?? 0,
+		}))
 	}
 
-	const handleEditSave = () => setEditingId(null)
+	const handleEditSave = async (itemId) => {
+		const id = itemId || editingId
+		if (!id) return
+
+		const item = displayItems.find((x) => getItemKey(x) === id)
+		if (!item) return
+
+		const nextCount = Number(editValues[id] ?? item.scannedCount ?? 0)
+		if (!Number.isInteger(nextCount) || nextCount < 0) {
+			toast.error("Count must be a non-negative integer")
+			return
+		}
+
+		try {
+			if (!item.scannedId) {
+				toast.error("Missing scanned id for update")
+				return
+			}
+
+			await axios.put("/api/scanned", { id: item.scannedId, count: nextCount })
+
+			setSyncItems((prev) =>
+				prev.map((x) => (getItemKey(x) === id ? { ...x, scannedCount: nextCount } : x)),
+			)
+
+			toast.success("Quantity updated")
+			setEditingId(null)
+		} catch (err) {
+			toast.error(err?.response?.data?.error || "Failed to update count")
+		}
+	}
 
 	const handleIncrement = (itemId) => {
 		const current = editValues[itemId] ?? 0
@@ -56,10 +122,26 @@ export default function QueuePage() {
 		setDeleteConfirm({ id: itemId, name: itemName })
 	}
 
-	const handleConfirmDelete = () => {
+	const handleConfirmDelete = async () => {
 		if (!deleteConfirm) return
-		handleRemove(deleteConfirm.id)
-		setDeleteConfirm(null)
+
+		try {
+			await axios.delete("/api/scanned", {
+				data: { id: deleteConfirm.id },
+			})
+
+			setSyncItems((prev) =>
+				prev.filter((item) => getItemKey(item) !== deleteConfirm.id),
+			)
+
+			toast.success("Item Removed", {
+				description: "Medicine removed from sync queue",
+			})
+		} catch (err) {
+			toast.error(err?.response?.data?.error || "Failed to delete item")
+		} finally {
+			setDeleteConfirm(null)
+		}
 	}
 
 	return (
@@ -69,7 +151,9 @@ export default function QueuePage() {
 				<Badge variant="secondary">{displayItems.length} items</Badge>
 			</div>
 
-			{displayItems.length === 0 ? (
+			{isLoadingSync ? (
+				<PendingSyncsSkeleton />
+			) : displayItems.length === 0 ? (
 				<div className="border border-dashed rounded-lg p-8">
 					<div className="flex flex-col items-center justify-center text-muted-foreground">
 						<Database className="h-12 w-12 mb-4 opacity-20" />
@@ -81,10 +165,10 @@ export default function QueuePage() {
 					<div className="space-y-3">
 						{displayItems.map((item) => (
 							<PendingSyncsCard
-								key={item.id}
+								key={getItemKey(item)}
 								item={item}
 								editingId={editingId}
-								editValue={editValues[item.id] ?? item.scannedQuantity}
+								editValue={editValues[getItemKey(item)] ?? item.scannedCount ?? 0}
 								onEditStart={handleEditStart}
 								onEditSave={handleEditSave}
 								onIncrement={handleIncrement}
