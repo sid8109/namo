@@ -13,12 +13,14 @@ import { useParams } from "next/navigation"
 import { StockCard } from "@/components/stock-card"
 import { InventoryLoadingSkeleton } from "@/components/inventory-loading-skeleton"
 import { useStock } from "@/contexts/stock-context"
+import { useCompany } from "@/contexts/company-context"
 import { useState, useEffect, useRef } from "react"
 import axios from "axios"
 
 export default function InventoryPage() {
 	const params = useParams()
 	const { searchTerm, setSearchTerm } = useStock()
+	const { selectedCompanyId } = useCompany()
 	const [searchCriteria, setSearchCriteria] = useState("name")
 	const [inventory, setInventory] = useState([])
 	const [loading, setLoading] = useState(true)
@@ -72,6 +74,7 @@ export default function InventoryPage() {
 				const response = await axios.get("/api/inventory", {
 					params: {
 						storeId: currentStoreId,
+						companyId: selectedCompanyId,
 						searchCriteria,
 						searchTerm: debouncedSearchTerm,
 					},
@@ -91,7 +94,7 @@ export default function InventoryPage() {
 			}
 		}
 
-		if (currentStoreId) {
+		if (currentStoreId && selectedCompanyId) {
 			fetchInventory()
 		}
 
@@ -100,7 +103,7 @@ export default function InventoryPage() {
 			searchCriteria,
 			searchTerm: currentSearchTerm,
 		}
-	}, [params.storeId, searchCriteria, debouncedSearchTerm])
+	}, [params.storeId, selectedCompanyId, searchCriteria, debouncedSearchTerm])
 
 	const getSearchLabel = () => {
 		if (searchCriteria === "barcode") return "Barcode"

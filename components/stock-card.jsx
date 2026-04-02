@@ -43,14 +43,17 @@ export function StockCard({ item }) {
 					<h4 className="text-[10px] font-black uppercase tracking-widest text-primary mb-2">Batch Details</h4>
 					<div className="space-y-2">
 						{item.batches?.map((batch, index) => {
+							const batchMrp = Number(batch.batchMRP ?? 0)
+							const batchPtr = Number(batch.batchPTR ?? 0)
+
 							return (
 								<div key={`${batch.id}-${index}`} className="p-2 border border-primary/10 rounded-lg">
 									<div className="flex justify-between gap-3">
 										<div className="flex-1 min-w-0">
 											<p className="font-mono font-bold text-muted-foreground text-xs">Batch: {batch.batch}</p>
 											<div className="flex gap-2 text-[10px] font-semibold mt-1.5 mb-1.5">
-												<span className="text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">MRP: ₹{(batch.batchMRP || 0).toFixed(2)}</span>
-												<span className="text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">PTR: ₹{(batch.batchPTR || 0).toFixed(2)}</span>
+												<span className="text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">MRP: ₹{batchMrp.toFixed(2)}</span>
+												<span className="text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">PTR: ₹{batchPtr.toFixed(2)}</span>
 											</div>
 											<p className="text-[9px] text-muted-foreground uppercase tracking-widest font-bold">
 												Barcode: {batch.barcode}

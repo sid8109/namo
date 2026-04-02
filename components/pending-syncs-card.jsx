@@ -24,9 +24,15 @@ export function PendingSyncsCard({
 	const variance = physicalQty - systemQty
 	const signedVariance = variance > 0 ? `+${variance}` : `${variance}`
 
+	const getVarianceTone = (value) => {
+		if (value > 0) return "bg-green-100 text-green-700"
+		if (value < 0) return "bg-red-100 text-red-600"
+		return "bg-gray-100 text-gray-600"
+	}
+
 	const expiryValue = item.expiry ?? item.exp ?? null
-	const ptrValue = Number(item.ptr ?? item.batchPTR ?? item.ptrRate ?? 0)
-	const mrpValue = Number(item.mrp ?? item.batchMRP ?? 0)
+	const ptrValue = Number(item.batchPTR ?? 0)
+	const mrpValue = Number(item.batchMRP ?? 0)
 
 	const formatExpiry = (value) =>
 		value ? new Date(value).toLocaleDateString("en-IN", { month: "short", year: "numeric" }) : "--"
@@ -134,9 +140,9 @@ export function PendingSyncsCard({
 						<span className="text-[10px] text-muted-foreground font-bold uppercase block">Physical</span>
 					</div>
 
-					<div className="text-center bg-orange-50 rounded-lg p-2.5">
-						<div className="text-base font-black text-orange-600 leading-none">{signedVariance}</div>
-						<span className="text-[10px] text-muted-foreground font-bold uppercase block mt-1">Variance</span>
+					<div className={`text-center rounded-lg p-2.5 ${getVarianceTone(variance)}`}>
+						<div className="text-base font-black leading-none">{signedVariance}</div>
+						<span className="text-[10px] font-bold uppercase block mt-1">Variance</span>
 					</div>
 				</div>
 			</div>

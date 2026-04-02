@@ -6,13 +6,21 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const storeId = searchParams.get("storeId");
+    const companyId = searchParams.get("companyId");
     const searchCriteria = searchParams.get("searchCriteria");
     const searchTerm = searchParams.get("searchTerm");
 
     if (!storeId) {
       return NextResponse.json(
         { success: false, error: "storeId is required" },
-        { status: 400 }
+        { status: 400 },
+      );
+    }
+
+    if (!companyId) {
+      return NextResponse.json(
+        { success: false, error: "companyId is required" },
+        { status: 400 },
       );
     }
 
@@ -24,7 +32,7 @@ export async function GET(request) {
     if (!store) {
       return NextResponse.json(
         { success: false, error: "Store not found" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -38,33 +46,41 @@ export async function GET(request) {
     });
 
     // Build dynamic WHERE clause based on search criteria
-    let whereClause = "AA.CompanyId = 2 AND (FF.Qty - FF.Outward) > 0";
-    const request_obj = storeDb.request().input('companyId', 2);
+    let whereClause = `AA.CompanyId = @companyId AND (FF.Qty - FF.Outward) >= 0`;
+    const request_obj = storeDb
+      .request()
+      .input("companyId", parseInt(companyId));
 
     if (searchTerm) {
       switch (searchCriteria) {
         case "name":
           whereClause += " AND AA.ItemName LIKE @searchTerm";
-          request_obj.input('searchTerm', `%${searchTerm}%`);
+          request_obj.input("searchTerm", `%${searchTerm}%`);
           break;
         case "generic":
           whereClause += " AND DD.GrpName LIKE @searchTerm";
-          request_obj.input('searchTerm', `%${searchTerm}%`);
+          request_obj.input("searchTerm", `%${searchTerm}%`);
           break;
         case "location":
           whereClause += " AND AA.LOCN LIKE @searchTerm";
-          request_obj.input('searchTerm', `%${searchTerm}%`);
+          request_obj.input("searchTerm", `%${searchTerm}%`);
           break;
         case "manufacturer":
           whereClause += " AND CC.Led_Name LIKE @searchTerm";
-          request_obj.input('searchTerm', `%${searchTerm}%`);
+          request_obj.input("searchTerm", `%${searchTerm}%`);
           break;
         case "barcode":
           whereClause += " AND FF.Barcode LIKE @searchTerm";
-          request_obj.input('searchTerm', `%${searchTerm}%`);
+          request_obj.input("searchTerm", `%${searchTerm}%`);
           break;
       }
     }
+
+    // AA.MRPRate as mrp,
+    // AA.PurcRate as purchaseRate,
+    // AA.PTRRate as ptrRate,
+    // AA.BulkPk_Pcs as bulkPack,
+    // AA.CasePk_Pcs as casePack,
 
     const query = `
       SELECT 
@@ -79,17 +95,11 @@ export async function GET(request) {
         DD.GrpName AS generic,
         EE.GrpName AS category,
         AA.HSN,
-        AA.S_IGSTPer as gst,
-        AA.MRPRate as mrp,
-        AA.PurcRate as purchaseRate,
-        AA.PTRRate as ptrRate,
-        AA.BulkPk_Pcs as bulkPack,
-        AA.CasePk_Pcs as casePack,
         FF.BatchNo as batch,
         FF.ExpDate as expiry,
         (FF.Qty - FF.Outward) as qty,
         FF.MRP as batchMRP,
-        FF.PTR as batchPTR,
+        (ISNULL(FF.PTR, 0) * (1 + (ISNULL(AA.S_IGSTPer, 0) / 100.0))) as batchPTR,
         FF.NPR as npr,
         FF.Barcode as barcode
       FROM tbl_ItemMaster AS AA
@@ -105,8 +115,8 @@ export async function GET(request) {
 
     // Group data by ItemDetailId
     const groupedData = {};
-    
-    result.recordset.forEach(item => {
+
+    result.recordset.forEach((item) => {
       if (!groupedData[item.id]) {
         groupedData[item.id] = {
           id: item.id,
@@ -120,17 +130,11 @@ export async function GET(request) {
           generic: item.generic,
           category: item.category,
           HSN: item.HSN,
-          gst: item.gst,
-          mrp: item.mrp,
-          purchaseRate: item.purchaseRate,
-          ptrRate: item.ptrRate,
-          bulkPack: item.bulkPack,
-          casePack: item.casePack,
           batches: [],
-          totalQty: 0
+          totalQty: 0,
         };
       }
-      
+
       groupedData[item.id].batches.push({
         batch: item.batch,
         expiry: item.expiry,
@@ -138,14 +142,16 @@ export async function GET(request) {
         batchMRP: item.batchMRP,
         batchPTR: item.batchPTR,
         npr: item.npr,
-        barcode: item.barcode
+        barcode: item.barcode,
       });
-      
+
       groupedData[item.id].totalQty += item.qty;
     });
 
     const groupedArray = Object.values(groupedData).sort((a, b) =>
-      (a.name || "").localeCompare(b.name || "", undefined, { sensitivity: "base" })
+      (a.name || "").localeCompare(b.name || "", undefined, {
+        sensitivity: "base",
+      }),
     );
 
     return NextResponse.json({
@@ -161,7 +167,7 @@ export async function GET(request) {
         error: "Failed to fetch inventory data",
         message: error.message,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

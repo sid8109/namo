@@ -6,10 +6,18 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const storeId = searchParams.get("storeId");
+    const companyId = searchParams.get("companyId");
 
     if (!storeId) {
       return NextResponse.json(
         { success: false, error: "storeId is required" },
+        { status: 400 },
+      );
+    }
+
+    if (!companyId) {
+      return NextResponse.json(
+        { success: false, error: "companyId is required" },
         { status: 400 },
       );
     }
@@ -53,9 +61,15 @@ export async function GET(request) {
       dbPassword: store.dbPassword,
     });
 
-    const req = storeDb.request().input("companyId", 2);
+    const req = storeDb.request().input("companyId", parseInt(companyId));
     const barcodeParams = barcodes.map((_, i) => `@barcode${i}`);
     barcodes.forEach((code, i) => req.input(`barcode${i}`, code));
+
+    // AA.MRPRate as mrp,
+    // AA.PurcRate as purchaseRate,
+    // AA.PTRRate as ptrRate,
+    // AA.BulkPk_Pcs as bulkPack,
+    // AA.CasePk_Pcs as casePack,
 
     const query = `
       SELECT
@@ -70,17 +84,11 @@ export async function GET(request) {
         DD.GrpName AS generic,
         EE.GrpName AS category,
         AA.HSN,
-        AA.S_IGSTPer as gst,
-        AA.MRPRate as mrp,
-        AA.PurcRate as purchaseRate,
-        AA.PTRRate as ptrRate,
-        AA.BulkPk_Pcs as bulkPack,
-        AA.CasePk_Pcs as casePack,
         FF.BatchNo as batch,
         FF.ExpDate as expiry,
         (FF.Qty - FF.Outward) as qty,
         FF.MRP as batchMRP,
-        FF.PTR as batchPTR,
+        (ISNULL(FF.PTR, 0) * (1 + (ISNULL(AA.S_IGSTPer, 0) / 100.0))) as batchPTR,
         FF.NPR as npr,
         FF.Barcode as barcode
       FROM tbl_ItemMaster AS AA
@@ -90,7 +98,7 @@ export async function GET(request) {
       LEFT JOIN tbl_GroupDetail EE ON AA.ItemCatg_GrpId = EE.GrpId AND EE.Type_Id = 30
       LEFT JOIN tbl_Inward FF ON AA.ItemDetailId = FF.ItemDetailId
       WHERE AA.CompanyId = @companyId
-        AND (FF.Qty - FF.Outward) > 0
+        AND (FF.Qty - FF.Outward) >= 0
         AND FF.Barcode IN (${barcodeParams.join(",")})
     `;
 
@@ -121,16 +129,11 @@ export async function GET(request) {
       }),
     );
 
-    const missingBarcodes = barcodes.filter((b) => !matchedBarcodes.has(b));
-
     return NextResponse.json({
       success: true,
       data,
-      missingBarcodes,
       meta: {
         scannedCount: barcodes.length,
-        matchedCount: barcodes.length - missingBarcodes.length,
-        missingCount: missingBarcodes.length,
         rowCount: data.length,
       },
     });
@@ -140,6 +143,162 @@ export async function GET(request) {
       {
         success: false,
         error: "Failed to sync scanned barcodes",
+        message: error.message,
+      },
+      { status: 500 },
+    );
+  }
+}
+
+export async function POST(request) {
+  try {
+    const body = await request.json();
+    const { storeId, companyId = 2, yearId, items = [] } = body;
+
+    if (!storeId || !yearId) {
+      return NextResponse.json(
+        { success: false, error: "storeId and yearId are required" },
+        { status: 400 },
+      );
+    }
+
+    if (!Array.isArray(items) || items.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "No items to sync" },
+        { status: 400 },
+      );
+    }
+
+    const store = await prisma.store.findUnique({ where: { id: storeId } });
+    if (!store) {
+      return NextResponse.json(
+        { success: false, error: "Store not found" },
+        { status: 404 },
+      );
+    }
+
+    const storeDb = await getStoreConnection({
+      dbIp: store.dbIp,
+      dbPort: store.dbPort,
+      dbName: store.dbName,
+      dbUser: store.dbUser,
+      dbPassword: store.dbPassword,
+    });
+
+    const inwardItems = [];
+    const outwardItems = [];
+    const syncedScannedIds = [];
+
+    // Process each item and calculate difference
+    for (const item of items) {
+      const systemQty = item.qty || 0;
+      const scannedQty = item.scannedCount || 0;
+      const difference = scannedQty - systemQty;
+
+      if (difference === 0) {
+        syncedScannedIds.push(item.scannedId);
+        continue;
+      }
+
+      const itemData = {
+        itemDetailId: item.id,
+        batchNo: item.batch,
+        expDate: item.expiry,
+        rate: difference > 0 ? item.batchMRP : item.batchPTR,
+        qty: Math.abs(difference),
+        itemName: item.name,
+        ledId: null,
+        gstPer: 18, // Default, adjust based on your logic
+      };
+
+      if (difference > 0) {
+        inwardItems.push(itemData);
+      } else {
+        outwardItems.push(itemData);
+      }
+    }
+
+    // Insert inward records
+    if (inwardItems.length > 0) {
+      const inwardQuery = `
+        INSERT INTO tbl_Inward 
+        (CompanyId, YearId, MyType, UsrDate, MyItemNo, UsrId, LedId_Trading, ItemDetailId, BatchNo, ExpDate, Qty, Rate, GrsAmt, PTR, MRP, RateType, S_IGSTPer)
+        VALUES 
+        ${inwardItems
+          .map(
+            (_, i) =>
+              `(@companyId, @yearId, 'STKIN', CAST(GETDATE() AS DATE), 'AUTO', 1, NULL, @itemDetailId${i}, @batchNo${i}, @expDate${i}, @qty${i}, @rate${i}, @rate${i} * @qty${i}, @rate${i}, @rate${i}, 'MRP', @gstPer${i})`,
+          )
+          .join(",\n        ")}
+      `;
+
+      let inwardReq = storeDb
+        .request()
+        .input("companyId", parseInt(companyId))
+        .input("yearId", parseInt(yearId));
+
+      inwardItems.forEach((item, i) => {
+        inwardReq
+          .input(`itemDetailId${i}`, item.itemDetailId)
+          .input(`batchNo${i}`, item.batchNo)
+          .input(`expDate${i}`, item.expDate)
+          .input(`qty${i}`, item.qty)
+          .input(`rate${i}`, parseFloat(item.rate))
+          .input(`gstPer${i}`, item.gstPer);
+      });
+
+      await inwardReq.query(inwardQuery);
+    }
+
+    // Insert outward records
+    if (outwardItems.length > 0) {
+      const outwardQuery = `
+        INSERT INTO tbl_Outward 
+        (CompanyId, YearId, MyType, UsrDate, MyItemNo, UsrId, LedId_Trading, ItemDetailId, BatchNo, Qty, Rate, GrsAmt, PTR, MRP, RateType, S_IGSTPer)
+        VALUES 
+        ${outwardItems
+          .map(
+            (_, i) =>
+              `(@companyId, @yearId, 'STKOT', CAST(GETDATE() AS DATE), 'AUTO', 1, NULL, @itemDetailId${i}, @batchNo${i}, @qty${i}, @rate${i}, @rate${i} * @qty${i}, @rate${i}, @rate${i}, 'PTR', @gstPer${i})`,
+          )
+          .join(",\n        ")}
+      `;
+
+      let outwardReq = storeDb
+        .request()
+        .input("companyId", parseInt(companyId))
+        .input("yearId", parseInt(yearId));
+
+      outwardItems.forEach((item, i) => {
+        outwardReq
+          .input(`itemDetailId${i}`, item.itemDetailId)
+          .input(`batchNo${i}`, item.batchNo)
+          .input(`qty${i}`, item.qty)
+          .input(`rate${i}`, parseFloat(item.rate))
+          .input(`gstPer${i}`, item.gstPer);
+      });
+
+      await outwardReq.query(outwardQuery);
+    }
+
+    // Clear all scanned records
+    await prisma.scanned.deleteMany({
+      where: { storeId },
+    });
+
+    return NextResponse.json({
+      success: true,
+      message: "Sync completed successfully",
+      inwardCount: inwardItems.length,
+      outwardCount: outwardItems.length,
+      totalSynced: items.length,
+    });
+  } catch (error) {
+    console.error("Sync POST error:", error);
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Failed to sync inventory",
         message: error.message,
       },
       { status: 500 },
