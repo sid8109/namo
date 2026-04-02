@@ -80,16 +80,30 @@ export default function Sync() {
 		}
 	}, [fiscalYears, selectedFiscalYear])
 
-	const handleSyncAll = () => {
+	const handleSyncAll = async () => {
 		if (displayItems.length === 0) return
 
-		toast.loading("Syncing Medicines", {
-			description: `Uploading ${displayItems.length} local records to main system...`,
-		})
+		try {
+			toast.loading("Syncing Medicines", {
+				description: `Uploading ${displayItems.length} local records to main system...`,
+			})
 
-		setTimeout(() => {
-			toast.success("Sync Successful")
-		}, 1500)
+			await axios.post("/api/sync", {
+				storeId,
+				companyId: selectedCompanyId,
+				yearId: selectedFiscalYear,
+				items: displayItems,
+			})
+
+			setSyncItems([])
+			toast.dismiss()
+			toast.success("Sync Successful", {
+				description: `${displayItems.length} records synced to main system`,
+			})
+		} catch (error) {
+			toast.dismiss()
+			toast.error(error?.response?.data?.error || "Failed to sync medicines")
+		}
 	}
 
 	const handleEditStart = (item) => {
@@ -175,7 +189,7 @@ export default function Sync() {
 			<div className="flex items-center justify-between gap-3">
 				<h2 className="text-lg font-bold">Pending Syncs</h2>
 				<div className="flex items-center gap-2">
-					<Badge variant="secondary">{displayItems.length} items</Badge>
+					{displayItems.length > 0 && <Badge variant="secondary">{displayItems.length} items</Badge>}
 					<div className="flex items-center gap-1.5 bg-slate-50 border border-gray-200 rounded-lg px-2.5 py-1.5 hover:bg-slate-100 transition-colors">
 						<Calendar className="h-3.5 w-3.5 text-muted-foreground" />
 						<select
@@ -196,10 +210,20 @@ export default function Sync() {
 			{isLoadingSync ? (
 				<PendingSyncsSkeleton />
 			) : displayItems.length === 0 ? (
-				<div className="border border-dashed rounded-lg p-8">
-					<div className="flex flex-col items-center justify-center text-muted-foreground">
-						<Database className="h-12 w-12 mb-4 opacity-20" />
-						<p className="text-sm">No data waiting to be synced</p>
+				<div className="flex flex-col items-center justify-center py-16 px-6 text-center space-y-4 mt-8">
+					{/* Empty State Icon */}
+					<div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center">
+						<Database className="w-10 h-10 text-slate-400" />
+					</div>
+
+					{/* Main Heading */}
+					<div className="space-y-2">
+						<h3 className="text-lg font-semibold text-slate-900">
+							No items to sync
+						</h3>
+						<p className="text-sm text-slate-500 leading-relaxed">
+							All your medicines are up-to-date with the main system.
+						</p>
 					</div>
 				</div>
 			) : (
@@ -225,7 +249,7 @@ export default function Sync() {
 						onClick={handleSyncAll}
 					>
 						<Check className="mr-2 h-5 w-5" />
-						Sync All to Database
+						Sync All
 					</Button>
 
 					{deleteConfirm && (

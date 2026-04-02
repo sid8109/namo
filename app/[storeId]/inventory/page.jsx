@@ -1,6 +1,6 @@
 "use client"
 
-import { Search, ChevronDown } from "lucide-react"
+import { Search, ChevronDown, Package, RotateCcw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import {
@@ -12,15 +12,14 @@ import {
 import { useParams } from "next/navigation"
 import { StockCard } from "@/components/stock-card"
 import { InventoryLoadingSkeleton } from "@/components/inventory-loading-skeleton"
-import { useStock } from "@/contexts/stock-context"
 import { useCompany } from "@/contexts/company-context"
 import { useState, useEffect, useRef } from "react"
 import axios from "axios"
 
 export default function InventoryPage() {
 	const params = useParams()
-	const { searchTerm, setSearchTerm } = useStock()
 	const { selectedCompanyId } = useCompany()
+	const [searchTerm, setSearchTerm] = useState("")
 	const [searchCriteria, setSearchCriteria] = useState("name")
 	const [inventory, setInventory] = useState([])
 	const [loading, setLoading] = useState(true)
@@ -172,7 +171,24 @@ export default function InventoryPage() {
 				{loading ? (
 					<InventoryLoadingSkeleton />
 				) : inventory.length === 0 ? (
-					<div className="text-center py-8 text-muted-foreground">No items found</div>
+					<div className="flex flex-col items-center justify-center py-16 px-6 text-center space-y-4">
+						{/* Empty State Icon */}
+						<div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center">
+							<Package className="w-10 h-10 text-slate-400" />
+						</div>
+
+						{/* Main Heading */}
+						<div className="space-y-2">
+							<h3 className="text-lg font-semibold text-slate-900">
+								{searchTerm ? "No items found" : "No inventory items"}
+							</h3>
+							<p className="text-sm text-slate-500 leading-relaxed">
+								{searchTerm
+									? `We couldn't find any items matching "${searchTerm}" by ${getSearchLabel().toLowerCase()}.`
+									: "Start by adding products to your inventory to see them here."}
+							</p>
+						</div>
+					</div>
 				) : (
 					inventory.map((item) => <StockCard key={item.id} item={item} />)
 				)}

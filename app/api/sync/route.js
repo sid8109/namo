@@ -88,9 +88,14 @@ export async function GET(request) {
         FF.ExpDate as expiry,
         (FF.Qty - FF.Outward) as qty,
         FF.MRP as batchMRP,
-        (ISNULL(FF.PTR, 0) * (1 + (ISNULL(AA.S_IGSTPer, 0) / 100.0))) as batchPTR,
+        ISNULL(FF.PTR, 0) as batchPTR,
+        (ISNULL(FF.PTR, 0) * (1 + (ISNULL(AA.S_IGSTPer, 0) / 100.0))) as batchPTRWithGST,
         FF.NPR as npr,
-        FF.Barcode as barcode
+        FF.Barcode as barcode,
+        FF.MyTYpe,
+        FF.UsrId,
+        FF.MyItemNo,
+        FF.SuppId 
       FROM tbl_ItemMaster AS AA
       LEFT JOIN tbl_GroupDetail BB ON AA.Pckg_GrpId = BB.GrpId AND BB.Type_Id = 31
       LEFT JOIN tbl_LedgerSetup CC ON AA.Mfr_Led_Id = CC.Led_Id
@@ -155,6 +160,13 @@ export async function POST(request) {
     const body = await request.json();
     const { storeId, companyId = 2, yearId, items = [] } = body;
 
+    console.log("Sync POST payload:", {
+      storeId,
+      companyId,
+      yearId,
+      itemsCount: items,
+    });
+
     if (!storeId || !yearId) {
       return NextResponse.json(
         { success: false, error: "storeId and yearId are required" },
@@ -199,67 +211,55 @@ export async function POST(request) {
         syncedScannedIds.push(item.scannedId);
         continue;
       }
-
-      const itemData = {
-        itemDetailId: item.id,
-        batchNo: item.batch,
-        expDate: item.expiry,
-        rate: difference > 0 ? item.batchMRP : item.batchPTR,
-        qty: Math.abs(difference),
-        itemName: item.name,
-        ledId: null,
-        gstPer: 18, // Default, adjust based on your logic
-      };
-
       if (difference > 0) {
-        inwardItems.push(itemData);
+        inwardItems.push({ ...item, difference });
       } else {
-        outwardItems.push(itemData);
+        outwardItems.push({ ...item, difference });
       }
     }
 
-    // Insert inward records
-    if (inwardItems.length > 0) {
-      const inwardQuery = `
-        INSERT INTO tbl_Inward 
-        (CompanyId, YearId, MyType, UsrDate, MyItemNo, UsrId, LedId_Trading, ItemDetailId, BatchNo, ExpDate, Qty, Rate, GrsAmt, PTR, MRP, RateType, S_IGSTPer)
-        VALUES 
-        ${inwardItems
-          .map(
-            (_, i) =>
-              `(@companyId, @yearId, 'STKIN', CAST(GETDATE() AS DATE), 'AUTO', 1, NULL, @itemDetailId${i}, @batchNo${i}, @expDate${i}, @qty${i}, @rate${i}, @rate${i} * @qty${i}, @rate${i}, @rate${i}, 'MRP', @gstPer${i})`,
-          )
-          .join(",\n        ")}
-      `;
+    // // Insert inward records
+    // if (inwardItems.length > 0) {
+    //   const inwardQuery = `
+    //     INSERT INTO tbl_Inward
+    //     (CompanyId, YearId, MyType, UsrDate, MyItemNo, UsrId, LedId_Trading, ItemDetailId, BatchNo, ExpDate, Qty, Rate, GrsAmt, PTR, MRP, RateType, S_IGSTPer)
+    //     VALUES
+    //     ${inwardItems
+    //       .map(
+    //         (_, i) =>
+    //           `(@companyId, @yearId, 'STKIN', CAST(GETDATE() AS DATE), 'AUTO', 1, NULL, @itemDetailId${i}, @batchNo${i}, @expDate${i}, @qty${i}, @rate${i}, @rate${i} * @qty${i}, @rate${i}, @rate${i}, 'MRP', @gstPer${i})`,
+    //       )
+    //       .join(",\n        ")}
+    //   `;
 
-      let inwardReq = storeDb
-        .request()
-        .input("companyId", parseInt(companyId))
-        .input("yearId", parseInt(yearId));
+    //   let inwardReq = storeDb
+    //     .request()
+    //     .input("companyId", parseInt(companyId))
+    //     .input("yearId", parseInt(yearId));
 
-      inwardItems.forEach((item, i) => {
-        inwardReq
-          .input(`itemDetailId${i}`, item.itemDetailId)
-          .input(`batchNo${i}`, item.batchNo)
-          .input(`expDate${i}`, item.expDate)
-          .input(`qty${i}`, item.qty)
-          .input(`rate${i}`, parseFloat(item.rate))
-          .input(`gstPer${i}`, item.gstPer);
-      });
+    //   inwardItems.forEach((item, i) => {
+    //     inwardReq
+    //       .input(`itemDetailId${i}`, item.itemDetailId)
+    //       .input(`batchNo${i}`, item.batchNo)
+    //       .input(`expDate${i}`, item.expDate)
+    //       .input(`qty${i}`, item.qty)
+    //       .input(`rate${i}`, parseFloat(item.rate))
+    //       .input(`gstPer${i}`, item.gstPer);
+    //   });
 
-      await inwardReq.query(inwardQuery);
-    }
+    //   await inwardReq.query(inwardQuery);
+    // }
 
     // Insert outward records
     if (outwardItems.length > 0) {
       const outwardQuery = `
         INSERT INTO tbl_Outward 
-        (CompanyId, YearId, MyType, UsrDate, MyItemNo, UsrId, LedId_Trading, ItemDetailId, BatchNo, Qty, Rate, GrsAmt, PTR, MRP, RateType, S_IGSTPer)
+        (UsrDate, MyType, MyItemNo, LedId_Party, LedId_Trading, StkFrom, StkFromId, StkFromItemNo, ItemDetailId, BatchNo, Qty, CP, PTR, SPTR, MRP, NSR, GrpId_Reason, SuppId, PNote, CompanyId, YearId)
         VALUES 
         ${outwardItems
           .map(
             (_, i) =>
-              `(@companyId, @yearId, 'STKOT', CAST(GETDATE() AS DATE), 'AUTO', 1, NULL, @itemDetailId${i}, @batchNo${i}, @qty${i}, @rate${i}, @rate${i} * @qty${i}, @rate${i}, @rate${i}, 'PTR', @gstPer${i})`,
+              `(CAST(GETDATE() AS DATE), 'STKOT', @scannedId${i}, 0, 0, @stkFrom${i}, @stkFromId${i}, @stkFromItemNo${i}, @itemDetailId${i}, @batchNo${i}, @qty${i}, @npr${i}, @batchPTR${i}, @sptr${i}, @batchMRP${i}, @npr${i}, 15, @suppId${i}, 'Namo Webapp', @companyId, @yearId)`,
           )
           .join(",\n        ")}
       `;
@@ -271,11 +271,18 @@ export async function POST(request) {
 
       outwardItems.forEach((item, i) => {
         outwardReq
-          .input(`itemDetailId${i}`, item.itemDetailId)
-          .input(`batchNo${i}`, item.batchNo)
-          .input(`qty${i}`, item.qty)
-          .input(`rate${i}`, parseFloat(item.rate))
-          .input(`gstPer${i}`, item.gstPer);
+          .input(`scannedId${i}`, item.scannedId || 1)
+          .input(`stkFrom${i}`, item.MyTYpe || "")
+          .input(`stkFromId${i}`, item.UsrId || 0)
+          .input(`stkFromItemNo${i}`, item.MyItemNo || 0)
+          .input(`itemDetailId${i}`, item.id)
+          .input(`batchNo${i}`, item.batch)
+          .input(`qty${i}`, Math.abs(item.difference))
+          .input(`npr${i}`, parseFloat(item.npr || 0))
+          .input(`batchPTR${i}`, parseFloat(item.batchPTR || 0))
+          .input(`sptr${i}`, parseFloat(item.batchPTRWithGST || 0))
+          .input(`batchMRP${i}`, parseFloat(item.batchMRP || 0))
+          .input(`suppId${i}`, item.suppId || 0);
       });
 
       await outwardReq.query(outwardQuery);
