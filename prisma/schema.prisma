@@ -23,6 +23,7 @@ model Store {
   dbPassword String
   createdAt  DateTime  @default(now())
   scanned    Scanned[]
+  orders     Order[]
 }
 
 model Scanned {
@@ -36,4 +37,20 @@ model Scanned {
 
   @@unique([storeId, barcode])
   @@index([storeId])
+}
+
+model Order {
+  id               Int      @id @default(autoincrement())
+  storeId          String
+  store            Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  customerId       Int
+  itemDetailId     Int
+  productName      String
+  manufacturerName String
+  qty              Int
+  ptr              Float
+  mrp              Float
+  rate             Float
+  companyId        Int
+  orderedAt        DateTime @default(now())
 }

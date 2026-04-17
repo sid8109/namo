@@ -15,9 +15,19 @@ export function StoreHeader() {
 
 	const isSyncPage = pathname.includes("/sync")
 	const isScannerPage = pathname.includes("/scanner")
+	const isOrderPage = pathname.includes("/order")
+	const isCartPage = pathname.includes("/cart")
 	const storeId = Array.isArray(params.storeId) ? params.storeId[0] : params.storeId
 	const currentStore = getStoreById(storeId)
 	const displayName = currentStore?.name || "Store"
+	
+	const getSubtitle = () => {
+		if (isSyncPage) return "Review Changes"
+		if (isScannerPage) return "Scan Items"
+		if (isOrderPage) return "Order Medicines"
+		if (isCartPage) return "Review Cart"
+		return "Pharmacy Management"
+	}
 	
 	return (
 		<header 
@@ -39,7 +49,7 @@ export function StoreHeader() {
 							{displayName}
 						</h2>
 						<p className="mt-0.5 text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
-							{isSyncPage ? "Review Changes" : isScannerPage ? "Scan Items" : "Pharmacy Management"}
+							{getSubtitle()}
 						</p>
 					</div>
 				</div>

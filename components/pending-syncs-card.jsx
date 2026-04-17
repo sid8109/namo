@@ -73,32 +73,32 @@ export function PendingSyncsCard({
 					</div>
 					<div className="flex gap-1 flex-shrink-0">
 						{isEditing ? (
-							<Button
-								variant="ghost"
-								size="sm"
+							<button
+								type="button"
 								onClick={() => onEditSave(rowKey)}
-								className="h-8 w-8 text-green-600 active:bg-green-50"
+								className="h-9 w-9 rounded-lg bg-green-50 text-green-600 flex items-center justify-center hover:bg-green-100 active:scale-95 transition-all duration-200"
+								aria-label={`Save ${item.name}`}
 							>
 								<SaveAll className="h-4 w-4" />
-							</Button>
+							</button>
 						) : (
-							<Button
-								variant="ghost"
-								size="sm"
+							<button
+								type="button"
 								onClick={() => onEditStart(item)}
-								className="h-8 w-8 text-blue-600 active:bg-blue-50"
+								className="h-9 w-9 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 active:scale-95 transition-all duration-200"
+								aria-label={`Edit ${item.name}`}
 							>
 								<Edit2 className="h-4 w-4" />
-							</Button>
+							</button>
 						)}
-						<Button
-							variant="ghost"
-							size="sm"
+						<button
+							type="button"
 							onClick={() => onDeleteClick(rowKey, item.name)}
-							className="h-8 w-8 text-destructive active:bg-red-50"
+							className="h-9 w-9 rounded-lg bg-red-50 text-red-600 flex items-center justify-center hover:bg-red-100 active:scale-95 transition-all duration-200"
+							aria-label={`Delete ${item.name}`}
 						>
 							<Trash2 className="h-4 w-4" />
-						</Button>
+						</button>
 					</div>
 				</div>
 

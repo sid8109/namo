@@ -16,27 +16,43 @@ export function CompanyProvider({ children }) {
 
 	useEffect(() => {
 		const fetchCompanies = async () => {
-            if (!storeId) return
-            
+			if (!storeId) {
+				setCompanies([])
+				setSelectedCompanyId(null)
+				setIsLoading(false)
+				return
+			}
+
+			setIsLoading(true)
+
 			try {
 				const { data } = await axios.get(`/api/companies?storeId=${storeId}`)
 
 				if (data.success && data.data?.length > 0) {
 					setCompanies(data.data)
-					// Set first company as default
-					if (!selectedCompanyId) {
+
+					const hasCurrentSelection = data.data.some(
+						(c) => String(c.companyId) === String(selectedCompanyId),
+					)
+
+					if (!hasCurrentSelection) {
 						setSelectedCompanyId(data.data[0].companyId)
 					}
+				} else {
+					setCompanies([])
+					setSelectedCompanyId(null)
 				}
 			} catch (error) {
 				console.error("Failed to fetch companies:", error)
+				setCompanies([])
+				setSelectedCompanyId(null)
 			} finally {
 				setIsLoading(false)
 			}
 		}
 
 		fetchCompanies()
-	}, [storeId])
+	}, [storeId, selectedCompanyId])
 
 	const getCompanyById = (id) => companies.find((c) => c.companyId === id)
 	const getCompanyName = (id) => getCompanyById(id)?.companyName

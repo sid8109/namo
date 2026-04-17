@@ -10,7 +10,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { useParams } from "next/navigation"
-import { StockCard } from "@/components/stock-card"
+import { StockCard, StockCardHeader } from "@/components/stock-card"
 import { InventoryLoadingSkeleton } from "@/components/inventory-loading-skeleton"
 import { useCompany } from "@/contexts/company-context"
 import { useState, useEffect, useRef } from "react"
@@ -190,7 +190,10 @@ export default function InventoryPage() {
 						</div>
 					</div>
 				) : (
-					inventory.map((item) => <StockCard key={item.id} item={item} />)
+					<>
+						<StockCardHeader />
+						{inventory.map((item) => <StockCard key={item.id} item={item} />)}
+					</>
 				)}
 			</div>
 		</>

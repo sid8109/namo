@@ -23,6 +23,7 @@ export async function GET(request) {
     }
 
     const store = await prisma.store.findUnique({ where: { id: storeId } });
+
     if (!store) {
       return NextResponse.json(
         { success: false, error: "Store not found" },
@@ -43,11 +44,8 @@ export async function GET(request) {
       return NextResponse.json({
         success: true,
         data: [],
-        missingBarcodes: [],
         meta: {
           scannedCount: 0,
-          matchedCount: 0,
-          missingCount: 0,
           rowCount: 0,
         },
       });
@@ -62,16 +60,18 @@ export async function GET(request) {
     });
 
     const req = storeDb.request().input("companyId", parseInt(companyId));
-    const barcodeParams = barcodes.map((_, i) => `@barcode${i}`);
-    barcodes.forEach((code, i) => req.input(`barcode${i}`, code));
 
-    // AA.MRPRate as mrp,
-    // AA.PurcRate as purchaseRate,
-    // AA.PTRRate as ptrRate,
-    // AA.BulkPk_Pcs as bulkPack,
-    // AA.CasePk_Pcs as casePack,
+    const valuesClause = barcodes.map((_, i) => `(@barcode${i})`).join(",");
+
+    barcodes.forEach((code, i) => {
+      req.input(`barcode${i}`, code);
+    });
 
     const query = `
+      WITH BarcodeList AS (
+        SELECT barcode
+        FROM (VALUES ${valuesClause}) AS t(barcode)
+      )
       SELECT
         AA.ItemDetailId as id,
         AA.ItemUsrCode as itemCode,
@@ -86,7 +86,7 @@ export async function GET(request) {
         AA.HSN,
         FF.BatchNo as batch,
         FF.ExpDate as expiry,
-        (FF.Qty - FF.Outward) as qty,
+        FF.qty,
         FF.MRP as batchMRP,
         ISNULL(FF.PTR, 0) as batchPTR,
         (ISNULL(FF.PTR, 0) * (1 + (ISNULL(AA.S_IGSTPer, 0) / 100.0))) as batchPTRWithGST,
@@ -96,51 +96,66 @@ export async function GET(request) {
         FF.UsrId,
         FF.MyItemNo,
         FF.SuppId 
-      FROM tbl_ItemMaster AS AA
-      LEFT JOIN tbl_GroupDetail BB ON AA.Pckg_GrpId = BB.GrpId AND BB.Type_Id = 31
-      LEFT JOIN tbl_LedgerSetup CC ON AA.Mfr_Led_Id = CC.Led_Id
-      LEFT JOIN tbl_GroupDetail DD ON AA.Generic_GrpId = DD.GrpId AND DD.Type_Id = 48
-      LEFT JOIN tbl_GroupDetail EE ON AA.ItemCatg_GrpId = EE.GrpId AND EE.Type_Id = 30
-      LEFT JOIN tbl_Inward FF ON AA.ItemDetailId = FF.ItemDetailId
+      FROM BarcodeList BL
+      INNER JOIN (
+        SELECT 
+          ItemDetailId,
+          BatchNo,
+          ExpDate,
+          (Qty - Outward) as qty,
+          MRP,
+          PTR,
+          NPR,
+          Barcode,
+          MyTYpe,
+          UsrId,
+          MyItemNo,
+          SuppId
+        FROM tbl_Inward
+        WHERE (Qty - Outward) >= 0
+      ) FF ON FF.Barcode = BL.barcode
+      INNER JOIN tbl_ItemMaster AA 
+        ON AA.ItemDetailId = FF.ItemDetailId
+      LEFT JOIN tbl_GroupDetail BB 
+        ON AA.Pckg_GrpId = BB.GrpId AND BB.Type_Id = 31
+      LEFT JOIN tbl_LedgerSetup CC 
+        ON AA.Mfr_Led_Id = CC.Led_Id
+      LEFT JOIN tbl_GroupDetail DD 
+        ON AA.Generic_GrpId = DD.GrpId AND DD.Type_Id = 48
+      LEFT JOIN tbl_GroupDetail EE 
+        ON AA.ItemCatg_GrpId = EE.GrpId AND EE.Type_Id = 30
       WHERE AA.CompanyId = @companyId
-        AND (FF.Qty - FF.Outward) >= 0
-        AND FF.Barcode IN (${barcodeParams.join(",")})
+        AND FF.Barcode = BL.barcode
+      ORDER BY AA.ItemName ASC
     `;
 
     const result = await req.query(query);
-    const allRows = result.recordset || [];
+    const rows = result.recordset || [];
 
-    const scannedByBarcode = new Map(
+    const scannedMap = new Map(
       scannedRows.map((r) => [String(r.barcode).trim(), r]),
     );
 
     const matchedBarcodes = new Set();
-    const data = allRows.map((item) => {
-      const barcodeKey = String(item.barcode || "").trim();
-      if (barcodeKey) matchedBarcodes.add(barcodeKey);
 
-      const scanRow = scannedByBarcode.get(barcodeKey);
+    const data = rows.map((item) => {
+      const key = String(item.barcode || "").trim();
+      if (key) matchedBarcodes.add(key);
+
+      const scan = scannedMap.get(key);
 
       return {
         ...item,
-        scannedId: scanRow?.id ?? null,
-        scannedCount: scanRow?.count || 0,
+        scannedId: scan?.id ?? null,
+        scannedCount: scan?.count || 0,
       };
     });
 
-    data.sort((a, b) =>
-      (a.name || "").localeCompare(b.name || "", undefined, {
-        sensitivity: "base",
-      }),
-    );
+    console.log("Matched barcodes:", data);
 
     return NextResponse.json({
       success: true,
       data,
-      meta: {
-        scannedCount: barcodes.length,
-        rowCount: data.length,
-      },
     });
   } catch (error) {
     console.error("Sync route error:", error);
@@ -252,14 +267,28 @@ export async function POST(request) {
 
     // Insert outward records
     if (outwardItems.length > 0) {
+      // Retrieve the max MyId and current UsrId
+      const idsQuery = `
+        SELECT ISNULL(MAX(MyId), 0) as maxMyId, MAX(UsrId) as usrId FROM tbl_Outward WHERE CompanyId = @companyId
+      `;
+      const idsResult = await storeDb
+        .request()
+        .input("companyId", parseInt(companyId))
+        .query(idsQuery);
+      const { maxMyId = 0, usrId = 1 } = idsResult.recordset[0] || {};
+
+      let nextMyId = maxMyId + 1;
+      let nextUsrId = usrId + 1;
+
+      console.log("Next MyId:", nextMyId, "Next UsrId:", nextUsrId);
       const outwardQuery = `
         INSERT INTO tbl_Outward 
-        (UsrDate, MyType, MyItemNo, LedId_Party, LedId_Trading, StkFrom, StkFromId, StkFromItemNo, ItemDetailId, BatchNo, Qty, CP, PTR, SPTR, MRP, NSR, GrpId_Reason, SuppId, PNote, CompanyId, YearId)
+        (MyId, UsrDate, MyType, MyItemNo, UsrId, LedId_Party, LedId_Trading, StkFrom, StkFromId, StkFromItemNo, ItemDetailId, BatchNo, Qty, CP, PTR, SPTR, MRP, NSR, GrpId_Reason, SuppId, PNote, CompanyId, YearId)
         VALUES 
         ${outwardItems
           .map(
             (_, i) =>
-              `(CAST(GETDATE() AS DATE), 'STKOT', @scannedId${i}, 0, 0, @stkFrom${i}, @stkFromId${i}, @stkFromItemNo${i}, @itemDetailId${i}, @batchNo${i}, @qty${i}, @npr${i}, @batchPTR${i}, @sptr${i}, @batchMRP${i}, @npr${i}, 15, @suppId${i}, 'Namo Webapp', @companyId, @yearId)`,
+              `(@myId${i}, CAST(GETDATE() AS DATE), 'STKOT', @scannedId${i}, @usrId${i}, 0, 0, @stkFrom${i}, @stkFromId${i}, @stkFromItemNo${i}, @itemDetailId${i}, @batchNo${i}, @qty${i}, @npr${i}, @batchPTR${i}, @sptr${i}, @batchMRP${i}, @npr${i}, 15, @suppId${i}, 'Namo Webapp', @companyId, @yearId)`,
           )
           .join(",\n        ")}
       `;
@@ -270,7 +299,16 @@ export async function POST(request) {
         .input("yearId", parseInt(yearId));
 
       outwardItems.forEach((item, i) => {
+        console.log(`Adding input for item ${i}:`, {
+          myId: nextMyId + i,
+          usrId: nextUsrId + i,
+          itemDetailId: item.id,
+          batch: item.batch,
+          qty: Math.abs(item.difference),
+        });
         outwardReq
+          .input(`myId${i}`, nextMyId + i)
+          .input(`usrId${i}`, nextUsrId + i)
           .input(`scannedId${i}`, item.scannedId || 1)
           .input(`stkFrom${i}`, item.MyTYpe || "")
           .input(`stkFromId${i}`, item.UsrId || 0)
@@ -284,6 +322,8 @@ export async function POST(request) {
           .input(`batchMRP${i}`, parseFloat(item.batchMRP || 0))
           .input(`suppId${i}`, item.suppId || 0);
       });
+
+      console.log("Executing outward query with items:", outwardItems);
 
       await outwardReq.query(outwardQuery);
     }

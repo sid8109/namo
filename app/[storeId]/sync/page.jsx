@@ -30,15 +30,21 @@ export default function Sync() {
 		return dateRange.replace(/,/g, "").replace(/([a-z])(\d)/gi, "$1 $2")
 	}
 
-	// Memoize fiscalYears to prevent dependency changes on every render
+	// Memoize selected company to avoid unnecessary recalculations
+	const selectedCompany = useMemo(() => {
+		if (!selectedCompanyId || companies.length === 0) return null
+		return companies.find(
+			(company) => String(company.companyId) === String(selectedCompanyId),
+		) || null
+	}, [companies, selectedCompanyId])
+
+	// Memoize fiscalYears based on selected company (not companies[0])
 	const fiscalYears = useMemo(() => {
-		return companies.length > 0 
-			? companies[0].years?.map((year) => ({
-				yearNo: year.yearNo,
-				frmToDate: year.frmToDate,
-			})) || []
-			: []
-	}, [companies])
+		return selectedCompany?.years?.map((year) => ({
+			yearNo: year.yearNo,
+			frmToDate: year.frmToDate,
+		})) || []
+	}, [selectedCompany])
 
 	useEffect(() => {
 		if (!storeId || !selectedCompanyId) return
@@ -76,6 +82,22 @@ export default function Sync() {
 	useEffect(() => {
 		// Set first year as default
 		if (fiscalYears.length > 0 && !selectedFiscalYear) {
+			setSelectedFiscalYear(fiscalYears[0].yearNo)
+		}
+	}, [fiscalYears, selectedFiscalYear])
+
+	useEffect(() => {
+		// Ensure selected year is always valid for the currently selected company
+		if (fiscalYears.length === 0) {
+			if (selectedFiscalYear) setSelectedFiscalYear("")
+			return
+		}
+
+		const existsInCurrentCompany = fiscalYears.some(
+			(year) => String(year.yearNo) === String(selectedFiscalYear),
+		)
+
+		if (!selectedFiscalYear || !existsInCurrentCompany) {
 			setSelectedFiscalYear(fiscalYears[0].yearNo)
 		}
 	}, [fiscalYears, selectedFiscalYear])

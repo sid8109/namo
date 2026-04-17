@@ -24,7 +24,7 @@ export async function GET(request) {
       );
     }
 
-    // Get store configuration from main database
+    // Get store config
     const store = await prisma.store.findUnique({
       where: { id: storeId },
     });
@@ -36,7 +36,7 @@ export async function GET(request) {
       );
     }
 
-    // Connect to store's database
+    // Connect to store DB
     const storeDb = await getStoreConnection({
       dbIp: store.dbIp,
       dbPort: store.dbPort,
@@ -45,7 +45,7 @@ export async function GET(request) {
       dbPassword: store.dbPassword,
     });
 
-    // Build dynamic WHERE clause based on search criteria
+    // Build WHERE clause
     let whereClause = `AA.CompanyId = @companyId AND (FF.Qty - FF.Outward) >= 0`;
     const request_obj = storeDb
       .request()
@@ -55,33 +55,25 @@ export async function GET(request) {
       switch (searchCriteria) {
         case "name":
           whereClause += " AND AA.ItemName LIKE @searchTerm";
-          request_obj.input("searchTerm", `%${searchTerm}%`);
           break;
         case "generic":
           whereClause += " AND DD.GrpName LIKE @searchTerm";
-          request_obj.input("searchTerm", `%${searchTerm}%`);
           break;
         case "location":
           whereClause += " AND AA.LOCN LIKE @searchTerm";
-          request_obj.input("searchTerm", `%${searchTerm}%`);
           break;
         case "manufacturer":
           whereClause += " AND CC.Led_Name LIKE @searchTerm";
-          request_obj.input("searchTerm", `%${searchTerm}%`);
           break;
         case "barcode":
           whereClause += " AND FF.Barcode LIKE @searchTerm";
-          request_obj.input("searchTerm", `%${searchTerm}%`);
           break;
       }
+
+      request_obj.input("searchTerm", `%${searchTerm}%`);
     }
 
-    // AA.MRPRate as mrp,
-    // AA.PurcRate as purchaseRate,
-    // AA.PTRRate as ptrRate,
-    // AA.BulkPk_Pcs as bulkPack,
-    // AA.CasePk_Pcs as casePack,
-
+    // Optimized flat query
     const query = `
       SELECT 
         AA.ItemDetailId as id,
@@ -102,23 +94,29 @@ export async function GET(request) {
         (ISNULL(FF.PTR, 0) * (1 + (ISNULL(AA.S_IGSTPer, 0) / 100.0))) as batchPTR,
         FF.NPR as npr,
         FF.Barcode as barcode
-      FROM tbl_ItemMaster AS AA
-      LEFT JOIN tbl_GroupDetail BB ON AA.Pckg_GrpId = BB.GrpId AND BB.Type_Id = 31
-      LEFT JOIN tbl_LedgerSetup CC ON AA.Mfr_Led_Id = CC.Led_Id
-      LEFT JOIN tbl_GroupDetail DD ON AA.Generic_GrpId = DD.GrpId AND DD.Type_Id = 48
-      LEFT JOIN tbl_GroupDetail EE ON AA.ItemCatg_GrpId = EE.GrpId AND EE.Type_Id = 30
-      LEFT JOIN tbl_Inward FF ON AA.ItemDetailId = FF.ItemDetailId
+      FROM tbl_ItemMaster AA
+      LEFT JOIN tbl_GroupDetail BB 
+        ON AA.Pckg_GrpId = BB.GrpId AND BB.Type_Id = 31
+      LEFT JOIN tbl_LedgerSetup CC 
+        ON AA.Mfr_Led_Id = CC.Led_Id
+      LEFT JOIN tbl_GroupDetail DD 
+        ON AA.Generic_GrpId = DD.GrpId AND DD.Type_Id = 48
+      LEFT JOIN tbl_GroupDetail EE 
+        ON AA.ItemCatg_GrpId = EE.GrpId AND EE.Type_Id = 30
+      LEFT JOIN tbl_Inward FF 
+        ON AA.ItemDetailId = FF.ItemDetailId
       WHERE ${whereClause}
+      ORDER BY AA.ItemName ASC
     `;
 
     const result = await request_obj.query(query);
 
-    // Group data by ItemDetailId
-    const groupedData = {};
+    // Efficient grouping using Map
+    const groupedMap = new Map();
 
-    result.recordset.forEach((item) => {
-      if (!groupedData[item.id]) {
-        groupedData[item.id] = {
+    for (const item of result.recordset) {
+      if (!groupedMap.has(item.id)) {
+        groupedMap.set(item.id, {
           id: item.id,
           itemCode: item.itemCode,
           name: item.name,
@@ -132,10 +130,12 @@ export async function GET(request) {
           HSN: item.HSN,
           batches: [],
           totalQty: 0,
-        };
+        });
       }
 
-      groupedData[item.id].batches.push({
+      const entry = groupedMap.get(item.id);
+
+      entry.batches.push({
         batch: item.batch,
         expiry: item.expiry,
         qty: item.qty,
@@ -145,19 +145,14 @@ export async function GET(request) {
         barcode: item.barcode,
       });
 
-      groupedData[item.id].totalQty += item.qty;
-    });
+      entry.totalQty += item.qty;
+    }
 
-    const groupedArray = Object.values(groupedData).sort((a, b) =>
-      (a.name || "").localeCompare(b.name || "", undefined, {
-        sensitivity: "base",
-      }),
-    );
+    const data = Array.from(groupedMap.values());
 
     return NextResponse.json({
       success: true,
-      data: groupedArray,
-      count: groupedArray.length,
+      data,
     });
   } catch (error) {
     console.error("Database error:", error);

@@ -1,6 +1,6 @@
 "use client"
 
-import { Package, Barcode, History, ClipboardList, BarChart3 } from "lucide-react"
+import { Package, Barcode, History, ClipboardList, ShoppingCart } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useRouter, usePathname, useParams } from "next/navigation"
 
@@ -19,8 +19,8 @@ export function BottomNavigation() {
 		}`
 
 	return (
-		<div className="fixed bottom-0 left-0 right-0 z-50 px-3 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] bg-background/80 backdrop-blur-md border-t border-border/60">
-			<div className="grid grid-cols-5 gap-2 max-w-md mx-auto">
+		<div className="fixed bottom-0 left-0 right-0 z-50 px-3 pt-2 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] bg-white border-t border-border/60">
+			<div className="grid grid-cols-5 gap-2">
 				<Button
 					variant="ghost"
 					className={tabClass(isActive("/inventory"))}
@@ -53,9 +53,9 @@ export function BottomNavigation() {
 
 				<Button
 					variant="ghost"
-					className={tabClass(isActive("/orders"))}
-					onClick={() => router.push(`/${storeId}/orders`)}
-					aria-label="Orders"
+					className={tabClass(isActive("/order"))}
+					onClick={() => router.push(`/${storeId}/order`)}
+					aria-label="Order"
 				>
 					<ClipboardList className="w-5 h-5" />
 					<span>Order</span>
@@ -63,12 +63,12 @@ export function BottomNavigation() {
 
 				<Button
 					variant="ghost"
-					className={tabClass(isActive("/reports"))}
-					onClick={() => router.push(`/${storeId}/reports`)}
-					aria-label="Reports"
+					className={tabClass(isActive("/cart"))}
+					onClick={() => router.push(`/${storeId}/cart`)}
+					aria-label="Cart"
 				>
-					<BarChart3 className="w-5 h-5" />
-					<span>Reports</span>
+					<ShoppingCart className="w-5 h-5" />
+					<span>Cart</span>
 				</Button>
 			</div>
 		</div>

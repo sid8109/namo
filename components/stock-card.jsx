@@ -3,6 +3,21 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
+export function StockCardHeader() {
+	return (
+		<div className="rounded-lg bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 mb-4 px-4 py-3">
+			<div className="flex items-center justify-between">
+				<div className="flex-1">
+					<p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">Name</p>
+				</div>
+				<div className="text-right">
+					<p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-0.5">Quantity</p>
+				</div>
+			</div>
+		</div>
+	)
+}
+
 export function StockCard({ item }) {
 	const [isExpanded, setIsExpanded] = React.useState(false)
 
@@ -30,8 +45,9 @@ export function StockCard({ item }) {
 				className="p-2.5 cursor-pointer"
 				onClick={() => setIsExpanded(!isExpanded)}
 			>
-				<div className="flex items-center">
+				<div className="flex items-center justify-between">
 					<h3 className="font-bold text-base leading-tight">{item.name} {item.packing}</h3>
+					<span className="font-black text-primary text-sm">{item.totalQty}</span>
 				</div>
 			</div>
 

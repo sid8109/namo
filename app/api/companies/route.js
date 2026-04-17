@@ -14,7 +14,6 @@ export async function GET(request) {
       );
     }
 
-    // Get store configuration from main database
     const store = await prisma.store.findUnique({
       where: { id: storeId },
     });
@@ -26,7 +25,6 @@ export async function GET(request) {
       );
     }
 
-    // Connect to store's database
     const storeDb = await getStoreConnection({
       dbIp: store.dbIp,
       dbPort: store.dbPort,
@@ -36,46 +34,60 @@ export async function GET(request) {
     });
 
     const query = `
-      SELECT TOP 2
-        AA.CompanyId,
-        AA.CompanyName,
-        BB.YearId,
-        BB.YearNo,
-        BB.FrmTo_Date
-      FROM tbl_Company AS AA
-      LEFT JOIN tbl_Year BB ON AA.CompanyId = BB.CompanyId
-      ORDER BY BB.YearNo DESC
+      SELECT 
+        CompanyId,
+        CompanyName,
+        YearId,
+        YearNo,
+        FrmTo_Date
+      FROM (
+        SELECT 
+          AA.CompanyId,
+          AA.CompanyName,
+          BB.YearId,
+          BB.YearNo,
+          BB.FrmTo_Date,
+          ROW_NUMBER() OVER (
+            PARTITION BY AA.CompanyId 
+            ORDER BY BB.YearNo DESC
+          ) as rn
+        FROM tbl_Company AA
+        LEFT JOIN tbl_Year BB 
+          ON AA.CompanyId = BB.CompanyId
+      ) t
+      WHERE rn <= 2
+      ORDER BY CompanyId, YearNo DESC
     `;
 
     const result = await storeDb.request().query(query);
 
-    // Group data by CompanyId
-    const groupedData = {};
+    // Efficient grouping
+    const map = new Map();
 
-    result.recordset.forEach((item) => {
-      if (!groupedData[item.CompanyId]) {
-        groupedData[item.CompanyId] = {
-          companyId: item.CompanyId,
-          companyName: item.CompanyName,
+    for (const row of result.recordset) {
+      if (!map.has(row.CompanyId)) {
+        map.set(row.CompanyId, {
+          companyId: row.CompanyId,
+          companyName: row.CompanyName,
           years: [],
-        };
-      }
-
-      if (item.YearId) {
-        groupedData[item.CompanyId].years.push({
-          yearId: item.YearId,
-          yearNo: item.YearNo,
-          frmToDate: item.FrmTo_Date,
         });
       }
-    });
 
-    const groupedArray = Object.values(groupedData);
+      if (row.YearId) {
+        map.get(row.CompanyId).years.push({
+          yearId: row.YearId,
+          yearNo: row.YearNo,
+          frmToDate: row.FrmTo_Date,
+        });
+      }
+    }
+
+    const data = Array.from(map.values());
 
     return NextResponse.json({
       success: true,
-      data: groupedArray,
-      count: groupedArray.length,
+      data,
+      count: data.length,
     });
   } catch (error) {
     console.error("Database error:", error);
