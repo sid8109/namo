@@ -14,26 +14,43 @@ datasource db {
 }
 
 model Store {
-  id        String   @id @default(uuid())
-  name      String
-  dbIp      String
-  dbPort    Int
-  dbName    String
-  dbUser    String
+  id         String    @id @default(uuid())
+  name       String
+  dbIp       String
+  dbPort     Int
+  dbName     String
+  dbUser     String
   dbPassword String
-  createdAt DateTime @default(now())
+  createdAt  DateTime  @default(now())
   scanned    Scanned[]
+  orders     Order[]
 }
 
 model Scanned {
-  id        String   @id @default(uuid())
+  id        Int      @id @default(autoincrement())
   storeId   String
   store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
   barcode   String
   count     Int      @default(1)
   scannedAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@unique([storeId, barcode])
   @@index([storeId])
+}
+
+model Order {
+  id               Int      @id @default(autoincrement())
+  storeId          String
+  store            Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  customerId       Int
+  itemDetailId     Int
+  productName      String
+  manufacturerName String
+  qty              Int
+  ptr              Float
+  mrp              Float
+  rate             Float
+  companyId        Int
+  orderedAt        DateTime @default(now())
 }

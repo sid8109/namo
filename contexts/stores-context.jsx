@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect } from "react"
+import axios from "axios"
 
 const StoresContext = createContext(null)
 
@@ -12,11 +13,7 @@ export function StoresProvider({ children }) {
 	useEffect(() => {
 		async function fetchStores() {
 			try {
-				const response = await fetch("/api/store")
-				if (!response.ok) {
-					throw new Error("Failed to fetch stores")
-				}
-				const data = await response.json()
+				const { data } = await axios.get("/api/store")
 				setStores(data)
 			} catch (err) {
 				setError(err.message)
@@ -32,11 +29,7 @@ export function StoresProvider({ children }) {
 		setLoading(true)
 		setError(null)
 		try {
-			const response = await fetch("/api/store")
-			if (!response.ok) {
-				throw new Error("Failed to fetch stores")
-			}
-			const data = await response.json()
+			const { data } = await axios.get("/api/store")
 			setStores(data)
 		} catch (err) {
 			setError(err.message)
