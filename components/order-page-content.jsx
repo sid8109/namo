@@ -7,6 +7,7 @@ import { toast } from "sonner"
 import { useCustomers } from "@/contexts/customer-context"
 import { useCompany } from "@/contexts/company-context"
 import { useParams } from "next/navigation"
+import { OrderLoadingSkeleton } from "@/components/order-loading-skeleton"
 
 export function OrderPageContent() {
 	const { customers, loadingCustomers, customerError } = useCustomers()
@@ -179,9 +180,7 @@ export function OrderPageContent() {
 			</div>
 
 			{loadingMedicines && debouncedQuery && (
-				<div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-center">
-					<p className="text-xs font-semibold text-muted-foreground">Searching medicines...</p>
-				</div>
+				<OrderLoadingSkeleton />
 			)}
 
 			{medicineError && (
@@ -247,8 +246,16 @@ export function OrderPageContent() {
 			})}
 
 			{!loadingMedicines && debouncedQuery && hasSearched && !medicineError && medicines.length === 0 && (
-				<div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-center">
-					<p className="text-xs font-semibold text-muted-foreground">No medicine found</p>
+				<div className="flex flex-col items-center justify-center py-16 px-6 text-center space-y-4">
+					<div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center">
+						<Package className="w-10 h-10 text-slate-400" />
+					</div>
+					<div className="space-y-2">
+						<h3 className="text-lg font-semibold text-slate-900">No items found</h3>
+						<p className="text-sm text-slate-500 leading-relaxed">
+							We couldn&apos;t find any items matching &quot;{debouncedQuery}&quot;.
+						</p>
+					</div>
 				</div>
 			)}
 		</div>

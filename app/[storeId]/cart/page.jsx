@@ -1,13 +1,14 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
-import { Pencil, Trash2, Save, Calendar, Check } from "lucide-react"
+import { Pencil, Trash2, Save, Calendar, Check, Database } from "lucide-react"
 import axios from "axios"
 import { CustomerProvider, useCustomers } from "@/contexts/customer-context"
 import { useCompany } from "@/contexts/company-context"
 import { useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { CartLoadingSkeleton } from "@/components/cart-loading-skeleton"
 import { toast } from "sonner"
 
 function CartPageContent() {
@@ -41,7 +42,7 @@ function CartPageContent() {
 		if (years.length > 0 && !selectedFiscalYear) {
 			setSelectedFiscalYear(years[0].yearNo)
 		}
-	}, [selectedCompany])
+	}, [selectedCompany, selectedFiscalYear])
 
 	useEffect(() => {
 		if (!customers.length) return setCustomerId("")
@@ -250,9 +251,7 @@ function CartPageContent() {
 			</div>
 
 			{loadingCart && (
-				<div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-center">
-					<p className="text-xs font-semibold text-muted-foreground">Loading cart items...</p>
-				</div>
+				<CartLoadingSkeleton />
 			)}
 
 			{cartError && (
@@ -314,8 +313,16 @@ function CartPageContent() {
 			)}
 
 			{!loadingCart && hasCartItems === false && !cartError && (
-				<div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4 text-center">
-					<p className="text-xs font-semibold text-muted-foreground">No items in cart</p>
+				<div className="flex flex-col items-center justify-center py-16 px-6 text-center space-y-4 mt-8">
+					<div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center">
+						<Database className="w-10 h-10 text-slate-400" />
+					</div>
+					<div className="space-y-2">
+						<h3 className="text-lg font-semibold text-slate-900">No items to sync</h3>
+						<p className="text-sm text-slate-500 leading-relaxed">
+							All your medicines are up-to-date with the main system.
+						</p>
+					</div>
 				</div>
 			)}
 
