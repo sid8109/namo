@@ -155,7 +155,7 @@ export function OrderPageContent() {
 							value={query}
 							onChange={(e) => setQuery(e.target.value)}
 							placeholder="Type medicine name..."
-							className="w-full h-10 rounded-lg border border-primary/20 bg-white pl-9 pr-3 text-sm outline-none focus:ring-2 focus:ring-primary/30"
+							className="w-full h-10 rounded-lg border border-primary/20 bg-white pl-9 pr-3 text-[16px] placeholder:text-[16px] outline-none focus:ring-2 focus:ring-primary/30"
 						/>
 					</div>
 				</div>
