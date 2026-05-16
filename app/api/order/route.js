@@ -78,7 +78,7 @@ export async function POST(request) {
           ${orders
             .map(
               (_, i) =>
-                `(@ledIdParty${i}, @orderNo, @itemNo${i}, @itemDetailId${i}, @rate${i}, @orderDate${i}, @orderDate${i}, 1, @qty${i}, "Free", @companyId${i}, @yearId)`,
+                `(@ledIdParty${i}, @orderNo, @itemNo${i}, @itemDetailId${i}, @rate${i}, @orderDate${i}, @orderDate${i}, 1, @qty${i}, @free${i}, @companyId${i}, @yearId)`,
             )
             .join(",\n          ")}
         `;
@@ -94,6 +94,7 @@ export async function POST(request) {
           request_obj.input(`rate${i}`, order.rate);
           request_obj.input(`orderDate${i}`, order.orderedAt);
           request_obj.input(`qty${i}`, order.qty);
+          request_obj.input(`free${i}`, order.free ?? 0);
           request_obj.input(`companyId${i}`, order.companyId);
         });
 

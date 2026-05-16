@@ -4,18 +4,19 @@ import React, { useState, useEffect } from "react"
 import { Search, Plus, Package } from "lucide-react"
 import axios from "axios"
 import { toast } from "sonner"
-import { useCustomers } from "@/contexts/customer-context"
 import { useCompany } from "@/contexts/company-context"
 import { useParams } from "next/navigation"
 import { OrderLoadingSkeleton } from "@/components/order-loading-skeleton"
+import { CustomerSearch } from "@/components/customer-search"
 
 export function OrderPageContent() {
-	const { customers, loadingCustomers, customerError } = useCustomers()
 	const { selectedCompanyId } = useCompany()
-	const [customerId, setCustomerId] = useState("")
+	const [selectedCustomer, setSelectedCustomer] = useState(null)
 	const params = useParams()
 	const storeId = params.storeId
-	
+
+	const customerId = selectedCustomer?.id
+
 	const [query, setQuery] = useState("")
 	const [debouncedQuery, setDebouncedQuery] = useState("")
 	const [medicines, setMedicines] = useState([])
@@ -23,13 +24,6 @@ export function OrderPageContent() {
 	const [medicineError, setMedicineError] = useState("")
 	const [hasSearched, setHasSearched] = useState(false)
 	const [drafts, setDrafts] = useState({})
-	console.log(medicines)
-	useEffect(() => {
-		if (!customers.length) return setCustomerId("")
-		setCustomerId((prev) =>
-			customers.some((c) => String(c.id) === String(prev)) ? prev : String(customers[0].id),
-		)
-	}, [customers])
 
 	useEffect(() => {
 		const timer = setTimeout(() => {
@@ -88,7 +82,7 @@ export function OrderPageContent() {
 	}, [storeId, selectedCompanyId, debouncedQuery])
 
 	const getDraft = React.useCallback(
-		(med) => drafts[med.ItemDetailId] ?? { ptr: med.PTR, qty: 0 },
+		(med) => drafts[med.ItemDetailId] ?? { ptr: med.PTR, sch: med.Sch || 0, qty: 0 },
 		[drafts],
 	)
 
@@ -99,6 +93,7 @@ export function OrderPageContent() {
 				...prev,
 				[medId]: {
 					ptr: Number(base?.PTR ?? 0),
+					sch: Number(base?.sch ?? 0),
 					qty: Number(base?.qty ?? 0),
 					...prev[medId],
 					[field]: value === "" ? "" : Number(value),
@@ -125,6 +120,8 @@ export function OrderPageContent() {
 				mrp: med.MRP,
 				rate: d.ptr,
 				companyId: selectedCompanyId,
+				sch: Number(med.Sch || 0),
+				free: Number(d.sch || 0),
 			})
 			if (!data?.success) throw new Error(data?.error || "Failed to add to cart")
 
@@ -144,25 +141,10 @@ export function OrderPageContent() {
 
 	return (
 		<div className="w-full px-3 py-3 pb-24 space-y-3">
-			<div className="rounded-xl overflow-hidden shadow-sm bg-white border border-gray-100 p-3 space-y-3">
+			<div className="rounded-xl shadow-sm bg-white border border-gray-100 p-3 space-y-3">
 				<div>
 					<p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Customer</p>
-					<select
-						value={customerId}
-						onChange={(e) => setCustomerId(e.target.value)}
-						className="w-full h-10 rounded-lg border border-primary/20 bg-primary/5 px-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-primary/30"
-						disabled={loadingCustomers || !!customerError}
-					>
-						{loadingCustomers && <option value="">Loading customers...</option>}
-						{customerError && <option value="">{customerError}</option>}
-						{!loadingCustomers &&
-							!customerError &&
-							customers.map((c) => (
-								<option key={c.id} value={String(c.id)}>
-									{c.name}
-								</option>
-							))}
-					</select>
+					<CustomerSearch storeId={storeId} value={selectedCustomer} onChange={setSelectedCustomer} />
 				</div>
 
 				<div>
@@ -207,10 +189,13 @@ export function OrderPageContent() {
 									</p>
 									<div className="flex flex-wrap gap-1.5 mt-1.5">
 										<span className="text-[10px] font-semibold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">
-											PTR ₹{Number(d.ptr || 0).toFixed(2)}
+											PTR ₹{Number(med.PTR || 0).toFixed(2)}
 										</span>
 										<span className="text-[10px] font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">
 											MRP ₹{Number(med.MRP || 0).toFixed(2)}
+										</span>
+										<span className="text-[10px] font-semibold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">
+											SCH {med.Sch || 0}
 										</span>
 									</div>
 								</div>
@@ -220,10 +205,14 @@ export function OrderPageContent() {
 								</span>
 							</div>
 
-							<div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end mt-2">
+							<div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end mt-2">
 								<label className="text-[10px] font-bold text-muted-foreground uppercase">
 									Rate
 									<input type="number" min="0" step="0.01" value={d.ptr} onChange={(e) => updateDraft(med.ItemDetailId, "ptr", e.target.value)} className="mt-1 w-full h-9 rounded-lg border border-blue-200 bg-blue-50 px-2 text-sm font-bold outline-none" />
+								</label>
+								<label className="text-[10px] font-bold text-muted-foreground uppercase">
+									SCH
+									<input type="number" min="0" step="1" value={d.sch} onChange={(e) => updateDraft(med.ItemDetailId, "sch", e.target.value)} className="mt-1 w-full h-9 rounded-lg border border-green-200 bg-green-50 px-2 text-sm font-bold outline-none" />
 								</label>
 								<label className="text-[10px] font-bold text-muted-foreground uppercase">
 									Qty

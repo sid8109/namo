@@ -22,7 +22,7 @@ export default function InventoryPage() {
 	const [searchTerm, setSearchTerm] = useState("")
 	const [searchCriteria, setSearchCriteria] = useState("name")
 	const [inventory, setInventory] = useState([])
-	const [loading, setLoading] = useState(true)
+	const [loading, setLoading] = useState(false)
 	const [debouncedSearchTerm, setDebouncedSearchTerm] = useState("")
 	const debounceTimer = useRef(null)
 	const prevFiltersRef = useRef({
@@ -59,6 +59,17 @@ export default function InventoryPage() {
 
 		// Skip reload when only dropdown criteria changes and search is empty
 		if (!isStoreChanged && isCriteriaChanged && wasSearchEmpty && isSearchEmpty) {
+			prevFiltersRef.current = {
+				storeId: currentStoreId,
+				searchCriteria,
+				searchTerm: currentSearchTerm,
+			}
+			return
+		}
+
+		// Clear results and don't fetch when search is empty
+		if (isSearchEmpty) {
+			setInventory([])
 			prevFiltersRef.current = {
 				storeId: currentStoreId,
 				searchCriteria,
@@ -170,22 +181,27 @@ export default function InventoryPage() {
 			<div className="px-3 space-y-2">
 				{loading ? (
 					<InventoryLoadingSkeleton />
+				) : !searchTerm ? (
+					<div className="flex flex-col items-center justify-center py-16 px-6 text-center space-y-4">
+						<div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center">
+							<Search className="w-10 h-10 text-slate-400" />
+						</div>
+						<div className="space-y-2">
+							<h3 className="text-lg font-semibold text-slate-900">Search to browse inventory</h3>
+							<p className="text-sm text-slate-500 leading-relaxed">
+								Type a {getSearchLabel().toLowerCase()} in the search bar above to find items.
+							</p>
+						</div>
+					</div>
 				) : inventory.length === 0 ? (
 					<div className="flex flex-col items-center justify-center py-16 px-6 text-center space-y-4">
-						{/* Empty State Icon */}
 						<div className="w-20 h-20 rounded-full bg-slate-100 flex items-center justify-center">
 							<Package className="w-10 h-10 text-slate-400" />
 						</div>
-
-						{/* Main Heading */}
 						<div className="space-y-2">
-							<h3 className="text-lg font-semibold text-slate-900">
-								{searchTerm ? "No items found" : "No inventory items"}
-							</h3>
+							<h3 className="text-lg font-semibold text-slate-900">No items found</h3>
 							<p className="text-sm text-slate-500 leading-relaxed">
-								{searchTerm
-									? `We couldn't find any items matching "${searchTerm}" by ${getSearchLabel().toLowerCase()}.`
-									: "Start by adding products to your inventory to see them here."}
+								{`We couldn't find any items matching "${searchTerm}" by ${getSearchLabel().toLowerCase()}.`}
 							</p>
 						</div>
 					</div>

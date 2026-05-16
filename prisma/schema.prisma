@@ -48,6 +48,8 @@ model Order {
   productName      String
   manufacturerName String
   qty              Int
+  sch              Int
+  free             Int
   ptr              Float
   mrp              Float
   rate             Float

@@ -66,7 +66,8 @@ export async function GET(request) {
         Max(DD.GrpName) AS Generics,
         Sum((EE.Qty + EE.SchQty) - (EE.Outward + EE.SchQtyIssued)) AS Qty,
         Max(AA.MRPRate) AS MRP,
-        Max(AA.PTRRate) AS PTR
+        Max(AA.PTRRate) AS PTR,
+        Max(EE.SchDesc) AS Sch
       FROM tbl_ItemMaster AS AA
       LEFT JOIN tbl_LedgerSetup BB 
         ON AA.Mfr_Led_Id = BB.Led_Id AND BB.Type_Id = 7

@@ -6,6 +6,11 @@ export async function GET(request) {
   try {
     const { searchParams } = new URL(request.url);
     const storeId = searchParams.get("storeId");
+    const search = searchParams.get("search")?.trim() || "";
+
+    if (!search) {
+      return NextResponse.json({ success: true, data: [], count: 0 });
+    }
 
     if (!storeId) {
       return NextResponse.json(
@@ -36,7 +41,7 @@ export async function GET(request) {
     });
 
     const query = `
-      SELECT 
+      SELECT
         AA.Led_Id as id,
         AA.Usr_Code as userCode,
         AA.Led_Name as name,
@@ -47,11 +52,13 @@ export async function GET(request) {
         AA.GSTIN as gstin
       FROM tbl_LedgerSetup AS AA
       LEFT JOIN tbl_GroupDetail BB ON AA.Grp_Id_Area = BB.GrpId
-      WHERE AA.Type_Id = 3
+      WHERE AA.Type_Id = 3 AND AA.Led_Name LIKE @search
       ORDER BY AA.Led_Name
     `;
 
-    const result = await storeDb.request().query(query);
+    const req = storeDb.request();
+    req.input("search", `%${search}%`);
+    const result = await req.query(query);
 
     return NextResponse.json({
       success: true,

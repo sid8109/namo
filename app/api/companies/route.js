@@ -34,16 +34,18 @@ export async function GET(request) {
     });
 
     const query = `
-      SELECT 
+      SELECT
         CompanyId,
         CompanyName,
+        Nick,
         YearId,
         YearNo,
         FrmTo_Date
       FROM (
-        SELECT 
+        SELECT
           AA.CompanyId,
           AA.CompanyName,
+          AA.Nick,
           BB.YearId,
           BB.YearNo,
           BB.FrmTo_Date,
@@ -56,7 +58,7 @@ export async function GET(request) {
           ON AA.CompanyId = BB.CompanyId
       ) t
       WHERE rn <= 2
-      ORDER BY CompanyId, YearNo DESC
+      ORDER BY CompanyId DESC, YearNo DESC
     `;
 
     const result = await storeDb.request().query(query);
@@ -69,6 +71,7 @@ export async function GET(request) {
         map.set(row.CompanyId, {
           companyId: row.CompanyId,
           companyName: row.CompanyName,
+          nick: row.Nick,
           years: [],
         });
       }

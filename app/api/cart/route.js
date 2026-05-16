@@ -72,6 +72,8 @@ export async function POST(request) {
       manufacturerName,
       mrp,
       rate,
+      sch = 0,
+      free = 0,
     } = body;
 
     // Validate required fields
@@ -121,6 +123,8 @@ export async function POST(request) {
         manufacturerName: manufacturerName || null,
         mrp: parseFloat(mrp),
         rate: parseFloat(rate),
+        sch: parseInt(sch) || 0,
+        free: parseInt(free) || 0,
       },
     });
 
@@ -145,7 +149,7 @@ export async function POST(request) {
 export async function PUT(request) {
   try {
     const body = await request.json();
-    const { id, storeId, companyId, ptr, qty } = body;
+    const { id, storeId, companyId, ptr, qty, free } = body;
 
     if (!id || !storeId || !companyId) {
       return NextResponse.json(
@@ -172,6 +176,7 @@ export async function PUT(request) {
     const updateData = {};
     if (ptr !== undefined) updateData.ptr = parseFloat(ptr);
     if (qty !== undefined) updateData.qty = parseInt(qty);
+    if (free !== undefined) updateData.free = parseInt(free);
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json(

@@ -3,8 +3,8 @@
 import { useState, useEffect, useMemo } from "react"
 import { Pencil, Trash2, Save, Calendar, Check, Database } from "lucide-react"
 import axios from "axios"
-import { CustomerProvider, useCustomers } from "@/contexts/customer-context"
 import { useCompany } from "@/contexts/company-context"
+import { CustomerSearch } from "@/components/customer-search"
 import { useParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -12,44 +12,31 @@ import { CartLoadingSkeleton } from "@/components/cart-loading-skeleton"
 import { toast } from "sonner"
 
 function CartPageContent() {
-	const { customers, loadingCustomers, customerError } = useCustomers()
 	const { selectedCompanyId, companies } = useCompany()
 	const params = useParams()
 	const storeId = params.storeId
-	const [customerId, setCustomerId] = useState("")
+	const [selectedCustomer, setSelectedCustomer] = useState(null)
 	const [cartItems, setCartItems] = useState([])
 	const [loadingCart, setLoadingCart] = useState(false)
 	const [cartError, setCartError] = useState("")
 	const [selectedFiscalYear, setSelectedFiscalYear] = useState("")
 	const [fiscalYears, setFiscalYears] = useState([])
 
-	// Memoize selected company to avoid unnecessary recalculations
 	const selectedCompany = useMemo(() => {
 		if (!selectedCompanyId || companies.length === 0) return null
-		return companies.find(
-			(company) => String(company.companyId) === String(selectedCompanyId),
-		) || null
+		return companies.find((c) => String(c.companyId) === String(selectedCompanyId)) || null
 	}, [companies, selectedCompanyId])
 
-	// Memoize fiscalYears based on selected company
 	useMemo(() => {
 		const years = selectedCompany?.years?.map((year) => ({
 			yearNo: year.yearNo,
 			frmToDate: year.frmToDate,
 		})) || []
 		setFiscalYears(years)
-		// Auto-select first year if available
-		if (years.length > 0 && !selectedFiscalYear) {
-			setSelectedFiscalYear(years[0].yearNo)
-		}
+		if (years.length > 0 && !selectedFiscalYear) setSelectedFiscalYear(years[0].yearNo)
 	}, [selectedCompany, selectedFiscalYear])
 
-	useEffect(() => {
-		if (!customers.length) return setCustomerId("")
-		setCustomerId((prev) =>
-			customers.some((c) => String(c.id) === String(prev)) ? prev : String(customers[0].id),
-		)
-	}, [customers])
+	const customerId = selectedCustomer?.id
 
 	useEffect(() => {
 		if (!storeId || !selectedCompanyId || !customerId) {
@@ -63,11 +50,7 @@ function CartPageContent() {
 				setLoadingCart(true)
 				setCartError("")
 				const { data } = await axios.get("/api/cart", {
-					params: {
-						storeId,
-						companyId: selectedCompanyId,
-						customerId,
-					},
+					params: { storeId, companyId: selectedCompanyId, customerId },
 				})
 				if (!active) return
 				if (!data?.success) throw new Error(data?.error || "Failed to fetch cart items")
@@ -84,9 +67,7 @@ function CartPageContent() {
 		}
 
 		fetchCartItems()
-		return () => {
-			active = false
-		}
+		return () => { active = false }
 	}, [storeId, selectedCompanyId, customerId])
 
 	const [drafts, setDrafts] = useState({})
@@ -94,13 +75,14 @@ function CartPageContent() {
 	const [deleteConfirm, setDeleteConfirm] = useState(null)
 
 	const getDraft = (med) =>
-		drafts[med.id] ?? { ptr: med.ptr ?? 0, mrp: med.mrp ?? 0, qty: med.qty ?? 0 }
+		drafts[med.id] ?? { ptr: med.ptr ?? 0, mrp: med.mrp ?? 0, qty: med.qty ?? 0, free: med.free ?? 0 }
 
 	const updateDraft = (id, field, value) => {
 		const numValue = value === "" ? "" : Number(value)
 		
 		if (numValue < 0) {
-			toast.error(`${field === "ptr" ? "Rate" : "Quantity"} cannot be negative`)
+			const label = field === "ptr" ? "Rate" : field === "free" ? "Free" : "Quantity"
+			toast.error(`${label} cannot be negative`)
 			return
 		}
 
@@ -117,9 +99,10 @@ function CartPageContent() {
 		const d = getDraft(med)
 		const ptr = Number(d.ptr || 0)
 		const qty = Number(d.qty || 0)
+		const free = Number(d.free || 0)
 
-		if (ptr < 0 || qty < 0) {
-			toast.error("Rate and Quantity cannot be negative")
+		if (ptr < 0 || qty < 0 || free < 0) {
+			toast.error("Rate, Quantity and Free cannot be negative")
 			return
 		}
 
@@ -130,6 +113,7 @@ function CartPageContent() {
 				companyId: selectedCompanyId,
 				ptr,
 				qty,
+				free,
 			})
 			if (!data?.success) throw new Error(data?.error || "Failed to update cart item")
 			
@@ -181,7 +165,7 @@ function CartPageContent() {
 				storeId,
 				companyId: selectedCompanyId,
 				yearId: selectedFiscalYear,
-				customerId: parseInt(customerId),
+				customerId: parseInt(customerId) || 0,
 			})
 
 			if (!data?.success) throw new Error(data?.error || "Failed to create order")
@@ -228,25 +212,10 @@ function CartPageContent() {
 					</div>
 				</div>
 
-			<div className="rounded-xl overflow-hidden shadow-sm bg-white border border-gray-100 p-3 space-y-3">
+			<div className="rounded-xl shadow-sm bg-white border border-gray-100 p-3 space-y-3">
 				<div>
 					<p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Customer</p>
-					<select
-						value={customerId}
-						onChange={(e) => setCustomerId(e.target.value)}
-						className="w-full h-10 rounded-lg border border-primary/20 bg-primary/5 px-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-primary/30"
-						disabled={loadingCustomers || !!customerError}
-					>
-						{loadingCustomers && <option value="">Loading customers...</option>}
-						{customerError && <option value="">{customerError}</option>}
-						{!loadingCustomers &&
-							!customerError &&
-							customers.map((c) => (
-								<option key={c.id} value={String(c.id)}>
-									{c.name}
-								</option>
-							))}
-					</select>
+					<CustomerSearch storeId={storeId} value={selectedCustomer} onChange={setSelectedCustomer} />
 				</div>
 			</div>
 
@@ -278,13 +247,18 @@ function CartPageContent() {
 										<div className="flex flex-wrap gap-1.5 mt-1.5">
 											<span className="text-[10px] font-semibold text-blue-700 bg-blue-100 px-1.5 py-0.5 rounded">PTR ₹{Number(d.ptr || 0).toFixed(2)}</span>
 											<span className="text-[10px] font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">MRP ₹{Number(med.mrp || 0).toFixed(2)}</span>
+											<span className="text-[10px] font-semibold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded">SCH {med.sch || 0}</span>
 										</div>
 									</div>
 
-									<div className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end mt-2">
+									<div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end mt-2">
 										<label className="text-[10px] font-bold text-muted-foreground uppercase">
 											Rate
 											<input type="number" min="0" step="0.01" value={d.ptr} onChange={(e) => updateDraft(med.id, "ptr", e.target.value)} disabled={!isEditing} className="mt-1 w-full h-9 rounded-lg border border-blue-200 bg-blue-50 px-2 text-sm font-bold outline-none disabled:opacity-60 disabled:cursor-not-allowed" />
+										</label>
+										<label className="text-[10px] font-bold text-muted-foreground uppercase">
+											Free
+											<input type="number" min="0" step="1" value={d.free} onChange={(e) => updateDraft(med.id, "free", e.target.value)} disabled={!isEditing} className="mt-1 w-full h-9 rounded-lg border border-green-200 bg-green-50 px-2 text-sm font-bold outline-none disabled:opacity-60 disabled:cursor-not-allowed" />
 										</label>
 										<label className="text-[10px] font-bold text-muted-foreground uppercase">
 											Qty
@@ -360,9 +334,5 @@ function CartPageContent() {
 }
 
 export default function CartPage() {
-	return (
-		<CustomerProvider>
-			<CartPageContent />
-		</CustomerProvider>
-	)
+	return <CartPageContent />
 }
