@@ -65,7 +65,7 @@ export function StoreHeader() {
 					>
 						{companies.map((company) => (
 							<option key={company.companyId} value={company.companyId}>
-								{company.companyName}
+								{company.nick ? `${company.nick} - ${company.companyName}` : company.companyName}
 							</option>
 						))}
 					</select>

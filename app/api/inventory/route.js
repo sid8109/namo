@@ -24,6 +24,10 @@ export async function GET(request) {
       );
     }
 
+    if (!searchTerm || !searchTerm.trim()) {
+      return NextResponse.json({ success: true, data: [] });
+    }
+
     // Get store config
     const store = await prisma.store.findUnique({
       where: { id: storeId },
