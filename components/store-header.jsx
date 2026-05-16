@@ -31,7 +31,7 @@ export function StoreHeader() {
 	
 	return (
 		<header 
-			className="sticky top-0 z-10 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-3 pb-3 pt-[max(0.5rem,env(safe-area-inset-top))]"
+			className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 px-3 pb-3 pt-[max(0.5rem,env(safe-area-inset-top))]"
 		>
 			<div className="flex items-center justify-between gap-3">
 				<div className="flex min-w-0 items-center gap-2.5 flex-1">
