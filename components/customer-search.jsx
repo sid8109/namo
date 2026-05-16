@@ -82,7 +82,7 @@ export function CustomerSearch({ storeId, value, onChange }) {
 					onFocus={() => (results.length > 0 || debouncedQuery) && setOpen(true)}
 					placeholder="Search customer..."
 					autoComplete="off"
-					className="w-full h-10 rounded-lg border border-primary/20 bg-primary/5 pl-9 pr-3 text-sm font-semibold outline-none focus:ring-2 focus:ring-primary/30"
+					className="w-full h-10 rounded-lg border border-primary/20 bg-primary/5 pl-9 pr-3 text-[16px] placeholder:text-[16px] font-semibold outline-none focus:ring-2 focus:ring-primary/30"
 				/>
 			</div>
 
