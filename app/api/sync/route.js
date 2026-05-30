@@ -138,10 +138,22 @@ export async function GET(request) {
 
     const matchedBarcodes = new Set();
 
-    const data = rows.map((item) => {
+    // Group rows by barcode and sum quantities
+    const barcodeGroupMap = new Map();
+    for (const item of rows) {
       const key = String(item.barcode || "").trim();
       if (key) matchedBarcodes.add(key);
 
+      if (!barcodeGroupMap.has(key)) {
+        barcodeGroupMap.set(key, { ...item });
+      } else {
+        const grouped = barcodeGroupMap.get(key);
+        grouped.qty += item.qty;
+      }
+    }
+
+    const data = Array.from(barcodeGroupMap.values()).map((item) => {
+      const key = String(item.barcode || "").trim();
       const scan = scannedMap.get(key);
 
       return {
@@ -150,8 +162,6 @@ export async function GET(request) {
         scannedCount: scan?.count || 0,
       };
     });
-
-    console.log("Matched barcodes:", data);
 
     return NextResponse.json({
       success: true,
@@ -173,7 +183,7 @@ export async function GET(request) {
 export async function POST(request) {
   try {
     const body = await request.json();
-    const { storeId, companyId = 2, yearId, items = [] } = body;
+    const { storeId, companyId, yearId, items = [] } = body;
 
     console.log("Sync POST payload:", {
       storeId,
@@ -189,6 +199,13 @@ export async function POST(request) {
       );
     }
 
+    if (!companyId) {
+      return NextResponse.json(
+        { success: false, error: "companyId is required" },
+        { status: 400 },
+      );
+    }
+
     if (!Array.isArray(items) || items.length === 0) {
       return NextResponse.json(
         { success: false, error: "No items to sync" },
@@ -197,6 +214,7 @@ export async function POST(request) {
     }
 
     const store = await prisma.store.findUnique({ where: { id: storeId } });
+    
     if (!store) {
       return NextResponse.json(
         { success: false, error: "Store not found" },
@@ -233,37 +251,37 @@ export async function POST(request) {
       }
     }
 
-    // // Insert inward records
-    // if (inwardItems.length > 0) {
-    //   const inwardQuery = `
-    //     INSERT INTO tbl_Inward
-    //     (CompanyId, YearId, MyType, UsrDate, MyItemNo, UsrId, LedId_Trading, ItemDetailId, BatchNo, ExpDate, Qty, Rate, GrsAmt, PTR, MRP, RateType, S_IGSTPer)
-    //     VALUES
-    //     ${inwardItems
-    //       .map(
-    //         (_, i) =>
-    //           `(@companyId, @yearId, 'STKIN', CAST(GETDATE() AS DATE), 'AUTO', 1, NULL, @itemDetailId${i}, @batchNo${i}, @expDate${i}, @qty${i}, @rate${i}, @rate${i} * @qty${i}, @rate${i}, @rate${i}, 'MRP', @gstPer${i})`,
-    //       )
-    //       .join(",\n        ")}
-    //   `;
+    // Insert inward records
+    if (inwardItems.length > 0) {
+      const inwardQuery = `
+        INSERT INTO tbl_Inward
+        (CompanyId, YearId, MyType, UsrDate, MyItemNo, UsrId, LedId_Trading, ItemDetailId, BatchNo, ExpDate, Qty, Rate, GrsAmt, PTR, MRP, RateType, S_IGSTPer)
+        VALUES
+        ${inwardItems
+          .map(
+            (_, i) =>
+              `(@companyId, @yearId, 'STKIN', CAST(GETDATE() AS DATE), 'AUTO', 1, NULL, @itemDetailId${i}, @batchNo${i}, @expDate${i}, @qty${i}, @rate${i}, @rate${i} * @qty${i}, @rate${i}, @rate${i}, 'MRP', @gstPer${i})`,
+          )
+          .join(",\n        ")}
+      `;
 
-    //   let inwardReq = storeDb
-    //     .request()
-    //     .input("companyId", parseInt(companyId))
-    //     .input("yearId", parseInt(yearId));
+      let inwardReq = storeDb
+        .request()
+        .input("companyId", parseInt(companyId))
+        .input("yearId", parseInt(yearId));
 
-    //   inwardItems.forEach((item, i) => {
-    //     inwardReq
-    //       .input(`itemDetailId${i}`, item.itemDetailId)
-    //       .input(`batchNo${i}`, item.batchNo)
-    //       .input(`expDate${i}`, item.expDate)
-    //       .input(`qty${i}`, item.qty)
-    //       .input(`rate${i}`, parseFloat(item.rate))
-    //       .input(`gstPer${i}`, item.gstPer);
-    //   });
+      inwardItems.forEach((item, i) => {
+        inwardReq
+          .input(`itemDetailId${i}`, item.itemDetailId)
+          .input(`batchNo${i}`, item.batchNo)
+          .input(`expDate${i}`, item.expDate)
+          .input(`qty${i}`, item.qty)
+          .input(`rate${i}`, parseFloat(item.rate))
+          .input(`gstPer${i}`, item.gstPer);
+      });
 
-    //   await inwardReq.query(inwardQuery);
-    // }
+      await inwardReq.query(inwardQuery);
+    }
 
     // Insert outward records
     if (outwardItems.length > 0) {

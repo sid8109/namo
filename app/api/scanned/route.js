@@ -38,11 +38,11 @@ export async function POST(request) {
 
 export async function PUT(request) {
   try {
-    const { id, count } = await request.json();
+    const { id, barcode, storeId, count } = await request.json();
 
-    if (!id || count === undefined) {
+    if ((!id && (!barcode || !storeId)) || count === undefined) {
       return NextResponse.json(
-        { error: "id and count are required" },
+        { error: "id (or barcode + storeId) and count are required" },
         { status: 400 },
       );
     }
@@ -54,10 +54,20 @@ export async function PUT(request) {
       );
     }
 
-    const updated = await prisma.scanned.update({
-      where: { id },
-      data: { count, updatedAt: new Date() },
-    });
+    let updated;
+    if (id) {
+      updated = await prisma.scanned.update({
+        where: { id: Number(id) },
+        data: { count, updatedAt: new Date() },
+      });
+    } else {
+      const safeBarcode = String(barcode).trim();
+      updated = await prisma.scanned.upsert({
+        where: { storeId_barcode: { storeId, barcode: safeBarcode } },
+        update: { count, updatedAt: new Date() },
+        create: { storeId, barcode: safeBarcode, count },
+      });
+    }
 
     return NextResponse.json(updated, { status: 200 });
   } catch (error) {
@@ -68,7 +78,7 @@ export async function PUT(request) {
       );
     }
 
-    console.error("Update scan error:", error);
+    console.error("Update scan error:", error?.message, error?.code, JSON.stringify(error?.meta));
     return NextResponse.json(
       { error: "Failed to update scan" },
       { status: 500 },

@@ -163,19 +163,6 @@ export default function InventoryPage() {
 						</DropdownMenuContent>
 					</DropdownMenu>
 				</div>
-
-				{/* <div className="grid grid-cols-2 gap-2">
-					<Button
-						onClick={() => router.push(`/${params.storeId}/scanner`)}
-						className="h-12 rounded-lg text-base gap-2 shadow-md shadow-primary/20"
-					>
-						<Barcode className="w-5 h-5" />
-						Scan
-					</Button>
-					<div className="w-full [&_button]:w-full [&_button]:h-12 [&_button]:rounded-lg">
-						<AddMedicineDrawer onAdd={addPendingItem} />
-					</div>
-				</div> */}
 			</div>
 
 			<div className="px-3 space-y-2">
@@ -208,7 +195,17 @@ export default function InventoryPage() {
 				) : (
 					<>
 						<StockCardHeader />
-						{inventory.map((item) => <StockCard key={item.id} item={item} />)}
+						{inventory.map((item) => (
+								<StockCard
+									key={item.id}
+									item={item}
+									storeId={params.storeId}
+									onGenericClick={(generic) => {
+										setSearchCriteria("generic")
+										setSearchTerm(generic)
+									}}
+								/>
+							))}
 					</>
 				)}
 			</div>
