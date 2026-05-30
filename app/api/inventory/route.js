@@ -50,7 +50,7 @@ export async function GET(request) {
     });
 
     // Build WHERE clause
-    let whereClause = `AA.CompanyId = @companyId AND (FF.Qty - FF.Outward) >= 0`;
+    let whereClause = `AA.CompanyId = @companyId AND (FF.Qty - FF.Outward) >= 0 AND (FF.ExpDate IS NULL OR FF.ExpDate >= DATEADD(MONTH, -2, CAST(GETDATE() AS DATE)))`;
     const request_obj = storeDb
       .request()
       .input("companyId", parseInt(companyId));
@@ -110,7 +110,7 @@ export async function GET(request) {
       LEFT JOIN tbl_Inward FF 
         ON AA.ItemDetailId = FF.ItemDetailId
       WHERE ${whereClause}
-      ORDER BY AA.ItemName ASC
+      ORDER BY AA.ItemName ASC, (FF.Qty - FF.Outward) DESC
     `;
 
     const result = await request_obj.query(query);
@@ -138,16 +138,25 @@ export async function GET(request) {
       }
 
       const entry = groupedMap.get(item.id);
+      const batchIndex = entry.batches.findIndex(
+        (b) => b.barcode === item.barcode,
+      );
 
-      entry.batches.push({
-        batch: item.batch,
-        expiry: item.expiry,
-        qty: item.qty,
-        batchMRP: item.batchMRP,
-        batchPTR: item.batchPTR,
-        npr: item.npr,
-        barcode: item.barcode,
-      });
+      if (batchIndex !== -1) {
+        // Barcode exists, sum the quantity
+        entry.batches[batchIndex].qty += item.qty;
+      } else {
+        // New barcode, add batch
+        entry.batches.push({
+          batch: item.batch,
+          expiry: item.expiry,
+          qty: item.qty,
+          batchMRP: item.batchMRP,
+          batchPTR: item.batchPTR,
+          npr: item.npr,
+          barcode: item.barcode,
+        });
+      }
 
       entry.totalQty += item.qty;
     }

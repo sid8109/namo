@@ -103,6 +103,10 @@ export function OrderPageContent() {
 	}
 
 	const addToCart = async (med) => {
+		if (!customerId) {
+			toast.error("Please select a customer before adding to cart")
+			return
+		}
 		const d = getDraft(med)
 		const qty = Math.max(0, Number(d.qty ?? 0))
 		const ptr = Math.max(0, Number(d.ptr ?? 0))
@@ -117,8 +121,8 @@ export function OrderPageContent() {
 				ptr,
 				productName: med.ProductName,
 				manufacturerName: med.MfgrName || null,
-				mrp: med.MRP,
-				rate: d.ptr,
+				mrp: Number(med.MRP || 0),
+				rate: Number(d.ptr || 0),
 				companyId: selectedCompanyId,
 				sch: Number(med.Sch || 0),
 				free: Number(d.sch || 0),
@@ -208,11 +212,11 @@ export function OrderPageContent() {
 							<div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-end mt-2">
 								<label className="text-[10px] font-bold text-muted-foreground uppercase">
 									Rate
-									<input type="number" min="0" step="0.01" value={d.ptr} onChange={(e) => updateDraft(med.ItemDetailId, "ptr", e.target.value)} className="mt-1 w-full h-9 rounded-lg border border-blue-200 bg-blue-50 px-2 text-sm font-bold outline-none" />
+									<input type="number" min="0" step="0.01" value={d.ptr} onChange={(e) => updateDraft(med.ItemDetailId, "ptr", e.target.value)} onFocus={() => { if (!Number(d.ptr)) updateDraft(med.ItemDetailId, "ptr", "") }} onBlur={() => { if (d.ptr === "" || d.ptr === undefined) updateDraft(med.ItemDetailId, "ptr", 0) }} className="mt-1 w-full h-9 rounded-lg border border-blue-200 bg-blue-50 px-2 text-sm font-bold outline-none" />
 								</label>
 								<label className="text-[10px] font-bold text-muted-foreground uppercase">
 									SCH
-									<input type="number" min="0" step="1" value={d.sch} onChange={(e) => updateDraft(med.ItemDetailId, "sch", e.target.value)} className="mt-1 w-full h-9 rounded-lg border border-green-200 bg-green-50 px-2 text-sm font-bold outline-none" />
+									<input type="number" min="0" step="1" value={d.sch} onChange={(e) => updateDraft(med.ItemDetailId, "sch", e.target.value)} onFocus={() => { if (!Number(d.sch)) updateDraft(med.ItemDetailId, "sch", "") }} onBlur={() => { if (d.sch === "" || d.sch === undefined) updateDraft(med.ItemDetailId, "sch", 0) }} className="mt-1 w-full h-9 rounded-lg border border-green-200 bg-green-50 px-2 text-sm font-bold outline-none" />
 								</label>
 								<label className="text-[10px] font-bold text-muted-foreground uppercase">
 									Qty
@@ -222,6 +226,8 @@ export function OrderPageContent() {
 										step="1"
 										value={d.qty}
 										onChange={(e) => updateDraft(med.ItemDetailId, "qty", e.target.value)}
+										onFocus={() => { if (!Number(d.qty)) updateDraft(med.ItemDetailId, "qty", "") }}
+										onBlur={() => { if (d.qty === "" || d.qty === undefined) updateDraft(med.ItemDetailId, "qty", 0) }}
 										className="mt-1 w-full h-9 rounded-lg border border-primary/20 bg-primary/5 px-2 text-sm font-bold outline-none"
 									/>
 								</label>
