@@ -203,7 +203,7 @@ export function OrderPageContent() {
 										</span>
 									</div>
 								</div>
-								<span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-1 rounded-md whitespace-nowrap">
+								<span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-md whitespace-nowrap ${Number(med.Qty) === 0 ? "text-red-700 bg-red-200" : "text-emerald-700 bg-emerald-100"}`}>
 									<Package className="h-3.5 w-3.5" />
 									{med.Qty}
 								</span>
